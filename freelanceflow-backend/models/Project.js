@@ -1,185 +1,235 @@
 // models/Project.js
 const mongoose = require('mongoose');
 
-const projectSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: [true, 'Project title is required'],
-    trim: true,
-    maxlength: [100, 'Title cannot exceed 100 characters']
-  },
-  description: {
-    type: String,
-    required: [true, 'Project description is required'],
-    maxlength: [5000, 'Description cannot exceed 5000 characters']
-  },
-  client: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
+const { Schema } = mongoose;
 
-  /**
-   * Canonical DB field for the assigned freelancer.
-   * We will expose a virtual alias "assignedFreelancer" that maps to this field,
-   * so you can use either `project.freelancer` or `project.assignedFreelancer`.
-   */
-  freelancer: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: null
-  },
-
-  category: {
-    type: String,
-    required: [true, 'Category is required'],
-    enum: [
-      'web-development',
-      'mobile-development',
-      'ui-ux-design',
-      'graphic-design',
-      'content-writing',
-      'digital-marketing',
-      'data-science',
-      'devops',
-      'blockchain',
-      'ai-ml',
-      'consulting',
-      'other'
-    ]
-  },
-  subcategory: {
-    type: String,
-    required: false
-  },
-  skills: [{
-    type: String,
-    required: true
-  }],
-  budget: {
-    type: {
+const projectSchema = new Schema(
+  {
+    title: {
       type: String,
-      enum: ['fixed', 'hourly'],
-      required: true
+      required: [true, 'Project title is required'],
+      trim: true,
+      maxlength: [100, 'Title cannot exceed 100 characters'],
     },
-    amount: {
-      type: Number,
-      required: function () { return this.budget.type === 'fixed'; },
-      min: [5, 'Budget must be at least $5']
+    description: {
+      type: String,
+      required: [true, 'Project description is required'],
+      maxlength: [5000, 'Description cannot exceed 5000 characters'],
     },
-    hourlyRate: {
-      min: {
-        type: Number,
-        required: function () { return this.budget.type === 'hourly'; }
+    client: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+
+    /**
+     * Canonical DB field for the assigned freelancer.
+     * We also expose a virtual alias "assignedFreelancer" that maps to this field.
+     */
+    freelancer: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+
+    // NEW: list of invitations sent by the client
+    invitedFreelancers: [
+      {
+        user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        note: { type: String, trim: true, maxlength: 1000 },
+        invitedAt: { type: Date, default: Date.now },
+        _id: false,
       },
-      max: {
-        type: Number,
-        required: function () { return this.budget.type === 'hourly'; }
-      }
-    }
-  },
-  timeline: {
-    duration: {
+    ],
+
+    category: {
       type: String,
-      enum: ['less-than-1-month', '1-3-months', '3-6-months', 'more-than-6-months'],
-      required: true
+      required: [true, 'Category is required'],
+      enum: [
+        'web-development',
+        'mobile-development',
+        'ui-ux-design',
+        'graphic-design',
+        'content-writing',
+        'digital-marketing',
+        'data-science',
+        'devops',
+        'blockchain',
+        'ai-ml',
+        'consulting',
+        'other',
+      ],
     },
-    startDate: {
-      type: Date,
-      default: Date.now
+
+    subcategory: {
+      type: String,
+      required: false,
     },
-    endDate: {
-      type: Date
-    }
-  },
-  experienceLevel: {
-    type: String,
-    enum: ['entry', 'intermediate', 'expert'],
-    required: true
-  },
-  projectSize: {
-    type: String,
-    enum: ['small', 'medium', 'large'],
-    required: true
-  },
-  status: {
-    type: String,
-    enum: ['draft', 'open', 'in-progress', 'completed', 'cancelled', 'dispute'],
-    default: 'open'
-  },
-  priority: {
-    type: String,
-    enum: ['low', 'medium', 'high', 'urgent'],
-    default: 'medium'
-  },
-  attachments: [{
-    filename: String,
-    url: String,
-    size: Number,
-    uploadedAt: { type: Date, default: Date.now }
-  }],
-  requirements: {
-    type: [String],
-    default: []
-  },
-  deliverables: {
-    type: [String],
-    default: []
-  },
-  proposalCount: {
-    type: Number,
-    default: 0
-  },
-  viewCount: {
-    type: Number,
-    default: 0
-  },
-  applicationDeadline: {
-    type: Date
-  },
-  isUrgent: {
-    type: Boolean,
-    default: false
-  },
-  isRemote: {
-    type: Boolean,
-    default: true
-  },
-  location: {
-    type: String,
-    default: 'Remote'
-  },
-  milestones: [{
-    title: String,
-    description: String,
-    amount: Number,
-    dueDate: Date,
+
+    skills: [
+      {
+        type: String,
+        required: true,
+      },
+    ],
+
+    budget: {
+      type: {
+        type: String,
+        enum: ['fixed', 'hourly'],
+        required: true,
+      },
+      amount: {
+        type: Number,
+        required: function () {
+          return this.budget.type === 'fixed';
+        },
+        min: [5, 'Budget must be at least $5'],
+      },
+      hourlyRate: {
+        min: {
+          type: Number,
+          required: function () {
+            return this.budget.type === 'hourly';
+          },
+        },
+        max: {
+          type: Number,
+          required: function () {
+            return this.budget.type === 'hourly';
+          },
+        },
+      },
+    },
+
+    timeline: {
+      duration: {
+        type: String,
+        enum: ['less-than-1-month', '1-3-months', '3-6-months', 'more-than-6-months'],
+        required: true,
+      },
+      startDate: {
+        type: Date,
+        default: Date.now,
+      },
+      endDate: {
+        type: Date,
+      },
+    },
+
+    experienceLevel: {
+      type: String,
+      enum: ['entry', 'intermediate', 'expert'],
+      required: true,
+    },
+
+    projectSize: {
+      type: String,
+      enum: ['small', 'medium', 'large'],
+      required: true,
+    },
+
     status: {
       type: String,
-      enum: ['pending', 'in-progress', 'completed', 'approved'],
-      default: 'pending'
-    }
-  }],
-  tags: [{
-    type: String,
-    lowercase: true,
-    trim: true
-  }],
-  featured: {
-    type: Boolean,
-    default: false
+      enum: ['draft', 'open', 'in-progress', 'completed', 'cancelled', 'dispute'],
+      default: 'open',
+    },
+
+    priority: {
+      type: String,
+      enum: ['low', 'medium', 'high', 'urgent'],
+      default: 'medium',
+    },
+
+    attachments: [
+      {
+        filename: String,
+        url: String,
+        size: Number,
+        uploadedAt: { type: Date, default: Date.now },
+        _id: false,
+      },
+    ],
+
+    requirements: {
+      type: [String],
+      default: [],
+    },
+
+    deliverables: {
+      type: [String],
+      default: [],
+    },
+
+    proposalCount: {
+      type: Number,
+      default: 0,
+    },
+
+    viewCount: {
+      type: Number,
+      default: 0,
+    },
+
+    applicationDeadline: {
+      type: Date,
+    },
+
+    isUrgent: {
+      type: Boolean,
+      default: false,
+    },
+
+    isRemote: {
+      type: Boolean,
+      default: true,
+    },
+
+    location: {
+      type: String,
+      default: 'Remote',
+    },
+
+    milestones: [
+      {
+        title: String,
+        description: String,
+        amount: Number,
+        dueDate: Date,
+        status: {
+          type: String,
+          enum: ['pending', 'in-progress', 'completed', 'approved'],
+          default: 'pending',
+        },
+      },
+    ],
+
+    tags: [
+      {
+        type: String,
+        lowercase: true,
+        trim: true,
+      },
+    ],
+
+    featured: {
+      type: Boolean,
+      default: false,
+    },
+
+    workCompleted: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
   },
-  workCompleted: {
-    type: Number,
-    default: 0,
-    min: 0,
-    max: 100
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
-}, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
-});
+);
 
 /* --------------------------- Indexes --------------------------- */
 projectSchema.index({ client: 1 });
@@ -194,13 +244,14 @@ projectSchema.index({ featured: -1, createdAt: -1 });
 projectSchema.index({ experienceLevel: 1 });
 projectSchema.index({ projectSize: 1 });
 projectSchema.index({ isUrgent: -1, createdAt: -1 });
+projectSchema.index({ 'invitedFreelancers.user': 1 }); // NEW index
 
 /* ----------------------- Text Index for search ----------------------- */
 projectSchema.index({
   title: 'text',
   description: 'text',
   skills: 'text',
-  tags: 'text'
+  tags: 'text',
 });
 
 /* ---------------------------- Virtuals ---------------------------- */
@@ -222,25 +273,17 @@ projectSchema.virtual('timeAgo').get(function () {
   const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
   const diffMinutes = Math.floor(diffTime / (1000 * 60));
 
-  if (diffDays > 0) {
-    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-  } else if (diffHours > 0) {
-    return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  } else {
-    return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
-  }
+  if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
 });
 
 /**
  * Virtual alias:
  * assignedFreelancer <-> freelancer
- * 
- * This lets you write:
- *   project.assignedFreelancer = userId;
- * and it will store in the underlying `freelancer` field.
- * Also reading `project.assignedFreelancer` returns `freelancer`.
  */
-projectSchema.virtual('assignedFreelancer')
+projectSchema
+  .virtual('assignedFreelancer')
   .get(function () {
     return this.freelancer;
   })
@@ -249,9 +292,8 @@ projectSchema.virtual('assignedFreelancer')
   });
 
 /* ----------------------------- Hooks ----------------------------- */
-// Keep for future logic if you want to auto-maintain proposalCount
 projectSchema.pre('save', function (next) {
-  // if (this.isModified('proposalCount') || this.isNew) { ... }
+  // keep for future logic if you want to auto-maintain proposalCount
   next();
 });
 
@@ -259,15 +301,17 @@ projectSchema.pre('save', function (next) {
 projectSchema.statics.findBySkills = function (skills) {
   return this.find({
     status: 'open',
-    skills: { $in: skills }
+    skills: { $in: skills },
   }).sort({ createdAt: -1 });
 };
 
 projectSchema.statics.findFeatured = function () {
   return this.find({
     status: 'open',
-    featured: true
-  }).sort({ createdAt: -1 }).limit(10);
+    featured: true,
+  })
+    .sort({ createdAt: -1 })
+    .limit(10);
 };
 
 /* ---------------------------- Methods ---------------------------- */

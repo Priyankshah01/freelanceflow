@@ -1,437 +1,356 @@
 // controllers/projectController.js
-const { validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const User = require('../models/User');
 
-// @desc    Get all projects with filters and search
-// @route   GET /api/projects
-// @access  Public (for browsing) / Private (for user's projects)
-exports.getProjects = async (req, res) => {
+const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+const buildError = (message, status = 400) => {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+};
+
+const handleError = (res, e) => {
+  const status = e?.status || 500;
+  return res.status(status).json({ message: e?.message || 'Server error' });
+};
+
+const buildPagination = (req) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+  const skip = (page - 1) * limit;
+  return { page, limit, skip };
+};
+
+/* =========================================================
+ * GET /api/projects  (Public browse + role-aware "mine")
+ * Query:
+ *  q, category, skills (comma or space separated), status,
+ *  mine=client|freelancer, sort, page, limit
+ * Behavior:
+ *  - If not authenticated: returns OPEN projects only (public browse)
+ *  - If authenticated with ?mine=client: only your projects
+ *  - If authenticated with ?mine=freelancer: only your assigned projects
+ *  - If authenticated without mine: public browse unless you pass status/filters
+ * =======================================================*/
+const getProjects = async (req, res) => {
   try {
+    const authUserId = req.user?._id;
+    const role = req.user?.role;
+
     const {
+      q,
       category,
       skills,
-      budget_min,
-      budget_max,
-      budget_type,
-      experience_level,
-      project_size,
-      timeline,
       status,
-      client,
-      freelancer,
-      search,
-      location,
-      is_remote,
-      is_urgent,
-      sort = '-createdAt',
-      page = 1,
-      limit = 12
+      mine,
+      sort
     } = req.query;
 
-    // Build filter object
+    const { page, limit, skip } = buildPagination(req);
+    const sortBy = sort || '-createdAt';
+
     const filter = {};
 
-    // Basic filters
+    // free-text search across title/description/skills/tags (uses text index if present)
+    if (q && q.trim()) {
+      filter.$text = { $search: q.trim() };
+    }
+
     if (category) filter.category = category;
-    if (status) {
-      filter.status = status;
+
+    // skills: CSV or space-separated → array
+    if (skills) {
+      const arr = String(skills)
+        .split(/[,\s]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (arr.length) filter.skills = { $in: arr };
+    }
+
+    // status filter
+    if (status) filter.status = status;
+
+    // Role-aware scope
+    if (mine && authUserId) {
+      if (mine === 'client') filter.client = authUserId;
+      if (mine === 'freelancer') filter.freelancer = authUserId;
+    } else if (!authUserId) {
+      // Public browse (not logged in): only open projects
+      if (!filter.status) filter.status = 'open';
     } else {
-      // Default to showing only open projects for public browsing
-      if (!client && !freelancer) {
+      // Logged-in but not using "mine": keep whatever filters were set.
+      // If *no* filters given, default to public open browse for parity.
+      if (!q && !category && !skills && !status) {
         filter.status = 'open';
       }
     }
-    if (client) filter.client = client;
-    if (freelancer) filter.freelancer = freelancer;
-    if (experience_level) filter.experienceLevel = experience_level;
-    if (project_size) filter.projectSize = project_size;
-    if (timeline) filter['timeline.duration'] = timeline;
-    if (location && location !== 'remote') filter.location = new RegExp(location, 'i');
-    if (is_remote === 'true') filter.isRemote = true;
-    if (is_urgent === 'true') filter.isUrgent = true;
 
-    // Skills filter (array contains any of the specified skills)
-    if (skills) {
-      const skillsArray = Array.isArray(skills) ? skills : skills.split(',');
-      filter.skills = { $in: skillsArray.map(skill => new RegExp(skill, 'i')) };
-    }
-
-    // Budget filter
-    if (budget_type && (budget_min || budget_max)) {
-      if (budget_type === 'fixed') {
-        filter['budget.type'] = 'fixed';
-        if (budget_min) filter['budget.amount'] = { $gte: Number(budget_min) };
-        if (budget_max) filter['budget.amount'] = { ...filter['budget.amount'], $lte: Number(budget_max) };
-      } else if (budget_type === 'hourly') {
-        filter['budget.type'] = 'hourly';
-        if (budget_min) filter['budget.hourlyRate.min'] = { $gte: Number(budget_min) };
-        if (budget_max) filter['budget.hourlyRate.max'] = { $lte: Number(budget_max) };
-      }
-    }
-
-    // Text search
-    if (search) {
-      filter.$text = { $search: search };
-    }
-
-    console.log('🔍 Project filter:', filter);
-
-    // Pagination
-    const skip = (page - 1) * limit;
-
-    // Build sort object
-    let sortOptions = {};
-    switch (sort) {
-      case 'newest':
-        sortOptions = { createdAt: -1 };
-        break;
-      case 'oldest':
-        sortOptions = { createdAt: 1 };
-        break;
-      case 'budget_high':
-        sortOptions = { 'budget.amount': -1 };
-        break;
-      case 'budget_low':
-        sortOptions = { 'budget.amount': 1 };
-        break;
-      case 'most_proposals':
-        sortOptions = { proposalCount: -1 };
-        break;
-      default:
-        if (search) {
-          sortOptions = { score: { $meta: 'textScore' }, createdAt: -1 };
-        } else {
-          sortOptions = { isUrgent: -1, featured: -1, createdAt: -1 };
-        }
-    }
-
-    // Execute query with population
-    const projects = await Project.find(filter)
-      .populate('client', 'name avatar profile.company profile.location ratings isVerified')
-      .populate('freelancer', 'name avatar profile.skills ratings')
-      .sort(sortOptions)
-      .skip(skip)
-      .limit(Number(limit));
-
-    // Get total count for pagination
-    const totalProjects = await Project.countDocuments(filter);
-    const totalPages = Math.ceil(totalProjects / limit);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        projects,
-        pagination: {
-          currentPage: Number(page),
-          totalPages,
-          totalProjects,
-          hasNextPage: page < totalPages,
-          hasPreviousPage: page > 1,
-          limit: Number(limit)
-        },
-        filters: {
-          applied: Object.keys(req.query).length > 0,
-          count: Object.keys(filter).length
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error('Get projects error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error fetching projects'
-    });
-  }
-};
-
-// @desc    Get single project with view increment
-// @route   GET /api/projects/:id
-// @access  Public
-exports.getProject = async (req, res) => {
-  try {
-    const project = await Project.findById(req.params.id)
-      .populate('client', 'name avatar profile.company profile.location profile.website ratings isVerified createdAt')
-      .populate('freelancer', 'name avatar profile.skills profile.hourlyRate ratings');
-
-    if (!project) {
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found'
-      });
-    }
-
-    // Increment view count (don't await to avoid slowing response)
-    project.incrementViews().catch(err => console.error('View count increment failed:', err));
-
-    res.status(200).json({
-      success: true,
-      data: { project }
-    });
-
-  } catch (error) {
-    console.error('Get project error:', error);
-    if (error.name === 'CastError') {
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found'
-      });
-    }
-    res.status(500).json({
-      success: false,
-      message: 'Server error fetching project'
-    });
-  }
-};
-
-// @desc    Create new project
-// @route   POST /api/projects
-// @access  Private (Client only)
-exports.createProject = async (req, res) => {
-  try {
-    // Check validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    // Only clients can create projects
-    if (req.user.role !== 'client') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only clients can create projects'
-      });
-    }
-
-    const projectData = {
-      ...req.body,
-      client: req.user._id
-    };
-
-    // Process skills array
-    if (typeof projectData.skills === 'string') {
-      projectData.skills = projectData.skills.split(',').map(skill => skill.trim()).filter(Boolean);
-    }
-
-    // Process tags array
-    if (typeof projectData.tags === 'string') {
-      projectData.tags = projectData.tags.split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean);
-    }
-
-    // Process requirements and deliverables
-    if (typeof projectData.requirements === 'string') {
-      projectData.requirements = projectData.requirements.split('\n').map(req => req.trim()).filter(Boolean);
-    }
-    if (typeof projectData.deliverables === 'string') {
-      projectData.deliverables = projectData.deliverables.split('\n').map(del => del.trim()).filter(Boolean);
-    }
-
-    console.log('📝 Creating project:', projectData);
-
-    const project = await Project.create(projectData);
-    
-    // Populate client data
-    await project.populate('client', 'name avatar profile.company ratings');
-
-    res.status(201).json({
-      success: true,
-      message: 'Project created successfully',
-      data: { project }
-    });
-
-  } catch (error) {
-    console.error('Create project error:', error);
-    
-    if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => ({
-        field: err.path,
-        message: err.message
-      }));
-      
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: validationErrors
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Server error creating project'
-    });
-  }
-};
-
-// @desc    Update project
-// @route   PUT /api/projects/:id
-// @access  Private (Client who owns the project)
-exports.updateProject = async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    const project = await Project.findById(req.params.id);
-
-    if (!project) {
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found'
-      });
-    }
-
-    // Check ownership (client who created the project or admin)
-    if (project.client.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to update this project'
-      });
-    }
-
-    // Don't allow updating client field or changing status to certain values
-    delete req.body.client;
-    delete req.body.proposalCount;
-    delete req.body.viewCount;
-
-    const updatedProject = await Project.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true
-      }
-    ).populate('client', 'name avatar profile.company ratings')
-     .populate('freelancer', 'name avatar profile.skills ratings');
-
-    res.status(200).json({
-      success: true,
-      message: 'Project updated successfully',
-      data: { project: updatedProject }
-    });
-
-  } catch (error) {
-    console.error('Update project error:', error);
-    if (error.name === 'CastError') {
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found'
-      });
-    }
-    res.status(500).json({
-      success: false,
-      message: 'Server error updating project'
-    });
-  }
-};
-
-// @desc    Delete project
-// @route   DELETE /api/projects/:id
-// @access  Private (Client who owns the project or admin)
-exports.deleteProject = async (req, res) => {
-  try {
-    const project = await Project.findById(req.params.id);
-
-    if (!project) {
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found'
-      });
-    }
-
-    // Check ownership
-    if (project.client.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to delete this project'
-      });
-    }
-
-    // Don't allow deletion if project is in progress
-    if (project.status === 'in-progress') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete project that is in progress'
-      });
-    }
-
-    await Project.findByIdAndDelete(req.params.id);
-
-    res.status(200).json({
-      success: true,
-      message: 'Project deleted successfully'
-    });
-
-  } catch (error) {
-    console.error('Delete project error:', error);
-    if (error.name === 'CastError') {
-      return res.status(404).json({
-        success: false,
-        message: 'Project not found'
-      });
-    }
-    res.status(500).json({
-      success: false,
-      message: 'Server error deleting project'
-    });
-  }
-};
-
-// @desc    Get project categories and stats
-// @route   GET /api/projects/categories
-// @access  Public
-exports.getCategories = async (req, res) => {
-  try {
-    const categories = await Project.aggregate([
-      { $match: { status: 'open' } },
-      { $group: { _id: '$category', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
+    const [items, total] = await Promise.all([
+      Project.find(filter)
+        .sort(sortBy)
+        .skip(skip)
+        .limit(limit)
+        .populate('client', 'name email')
+        .populate('freelancer', 'name email'),
+      Project.countDocuments(filter)
     ]);
 
-    const stats = await Project.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalProjects: { $sum: 1 },
-          openProjects: { $sum: { $cond: [{ $eq: ['$status', 'open'] }, 1, 0] } },
-          avgBudget: { $avg: '$budget.amount' },
-          totalBudget: { $sum: '$budget.amount' }
-        }
-      }
-    ]);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        categories: categories.map(cat => ({
-          name: cat._id,
-          count: cat.count,
-          label: cat._id.split('-').map(word => 
-            word.charAt(0).toUpperCase() + word.slice(1)
-          ).join(' ')
-        })),
-        stats: stats[0] || {
-          totalProjects: 0,
-          openProjects: 0,
-          avgBudget: 0,
-          totalBudget: 0
-        }
+    return res.json({
+      message: 'OK',
+      data: { projects: items },
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
       }
     });
-  } catch (error) {
-    console.error('Get categories error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error fetching categories'
-    });
+  } catch (e) {
+    return handleError(res, e);
   }
 };
+
+/* =========================================================
+ * GET /api/projects/categories  (Public)
+ * Returns available categories and simple counts
+ * =======================================================*/
+const getCategories = async (_req, res) => {
+  try {
+    // If you want dynamic aggregation, uncomment below.
+    // const rows = await Project.aggregate([
+    //   { $group: { _id: '$category', count: { $sum: 1 } } },
+    //   { $sort: { count: -1 } }
+    // ]);
+    // const categories = rows.map(r => ({ category: r._id, count: r.count }));
+
+    const STATIC = [
+      'web-development','mobile-development','ui-ux-design','graphic-design',
+      'content-writing','digital-marketing','data-science','devops',
+      'blockchain','ai-ml','consulting','other'
+    ];
+    const rows = await Project.aggregate([
+      { $match: { category: { $in: STATIC } } },
+      { $group: { _id: '$category', count: { $sum: 1 } } }
+    ]);
+    const countMap = Object.fromEntries(rows.map(r => [r._id, r.count]));
+    const categories = STATIC.map(c => ({ category: c, count: countMap[c] || 0 }));
+
+    return res.json({ message: 'OK', data: { categories } });
+  } catch (e) {
+    return handleError(res, e);
+  }
+};
+
+/* =========================================================
+ * GET /api/projects/:id  (Role-aware)
+ * Admin: any; Client: own project; Freelancer: assigned only
+ * =======================================================*/
+const getProject = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const role = req.user?.role;
+    const { id } = req.params;
+    if (!isValidId(id)) throw buildError('Invalid project id', 400);
+
+    const project = await Project.findById(id)
+      .populate('client', 'name email')
+      .populate('freelancer', 'name email');
+
+    if (!project) throw buildError('Project not found', 404);
+
+    if (!userId) {
+      // unauthenticated can only view open projects (public detail)
+      if (project.status !== 'open') throw buildError('Forbidden', 403);
+    } else if (role !== 'admin') {
+      const isClient =
+        String(project.client) === String(userId) ||
+        String(project.client?._id) === String(userId);
+      const isAssignedFreelancer =
+        String(project.freelancer) === String(userId) ||
+        String(project.freelancer?._id) === String(userId);
+
+      if (!isClient && !isAssignedFreelancer && project.status !== 'open') {
+        throw buildError('Forbidden', 403);
+      }
+    }
+
+    return res.json({ message: 'OK', data: { project } });
+  } catch (e) {
+    return handleError(res, e);
+  }
+};
+
+/* =========================================================
+ * POST /api/projects  (Client only)
+ * Body must satisfy your route validators
+ * =======================================================*/
+const createProject = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const role = req.user?.role;
+    if (!userId) throw buildError('Unauthorized', 401);
+    if (role !== 'client' && role !== 'admin') throw buildError('Forbidden', 403);
+
+    const payload = { ...req.body, client: role === 'admin' && req.body.client ? req.body.client : userId };
+
+    const project = await Project.create(payload);
+
+    return res.status(201).json({
+      message: 'Project created',
+      data: { project }
+    });
+  } catch (e) {
+    return handleError(res, e);
+  }
+};
+
+/* =========================================================
+ * PUT /api/projects/:id  (Owner client or admin)
+ * =======================================================*/
+const updateProject = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const role = req.user?.role;
+    if (!userId) throw buildError('Unauthorized', 401);
+
+    const { id } = req.params;
+    if (!isValidId(id)) throw buildError('Invalid project id', 400);
+
+    const project = await Project.findById(id);
+    if (!project) throw buildError('Project not found', 404);
+
+    const isOwner = String(project.client) === String(userId);
+    if (!isOwner && role !== 'admin') throw buildError('Forbidden', 403);
+
+    // Disallow changing client directly unless admin explicitly sets it
+    const update = { ...req.body };
+    if (role !== 'admin') {
+      delete update.client;
+    }
+
+    Object.assign(project, update);
+    await project.save();
+
+    const populated = await Project.findById(project._id)
+      .populate('client', 'name email')
+      .populate('freelancer', 'name email');
+
+    return res.json({ message: 'Project updated', data: { project: populated } });
+  } catch (e) {
+    return handleError(res, e);
+  }
+};
+
+/* =========================================================
+ * DELETE /api/projects/:id  (Owner client or admin)
+ * =======================================================*/
+const deleteProject = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const role = req.user?.role;
+    if (!userId) throw buildError('Unauthorized', 401);
+
+    const { id } = req.params;
+    if (!isValidId(id)) throw buildError('Invalid project id', 400);
+
+    const project = await Project.findById(id);
+    if (!project) throw buildError('Project not found', 404);
+
+    const isOwner = String(project.client) === String(userId);
+    if (!isOwner && role !== 'admin') throw buildError('Forbidden', 403);
+
+    await project.deleteOne();
+    return res.json({ message: 'Project deleted', data: { id } });
+  } catch (e) {
+    return handleError(res, e);
+  }
+};
+
+/* =========================================================
+ * POST /api/projects/:id/invite  (Owner client or admin)
+ * Body: { freelancerId, note? }
+ * Only when status === 'open'; no duplicate invites.
+ * =======================================================*/
+const inviteFreelancer = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    const role = req.user?.role;
+    if (!userId) throw buildError('Unauthorized', 401);
+
+    const { id } = req.params;
+    const { freelancerId, note } = req.body || {};
+
+    if (!isValidId(id)) throw buildError('Invalid project id', 400);
+    if (!isValidId(freelancerId)) throw buildError('Invalid freelancer id', 400);
+
+    const project = await Project.findById(id);
+    if (!project) throw buildError('Project not found', 404);
+
+    const isOwner = String(project.client) === String(userId);
+    if (!isOwner && role !== 'admin') throw buildError('Forbidden: not your project', 403);
+
+    if (project.status !== 'open') {
+      throw buildError('You can only invite freelancers to open projects', 400);
+    }
+
+    const freelancer = await User.findById(freelancerId).select('role name');
+    if (!freelancer) throw buildError('Freelancer not found', 404);
+    if (freelancer.role !== 'freelancer') {
+      throw buildError('Selected user is not a freelancer', 400);
+    }
+
+    const alreadyInvited = (project.invitedFreelancers || []).some(
+      (i) => String(i.user) === String(freelancerId)
+    );
+    if (alreadyInvited) {
+      return res.status(409).json({ message: 'Freelancer already invited to this project' });
+    }
+
+    project.invitedFreelancers = project.invitedFreelancers || [];
+    project.invitedFreelancers.push({
+      user: freelancerId,
+      note: note ? String(note).trim() : ''
+    });
+
+    await project.save();
+
+    // Socket.io notification can be added here if enabled
+    // const io = req.app.get('io');
+    // if (io) { io.to(`user:${freelancerId}`).emit('project:invited', {...}); }
+
+    return res.status(201).json({
+      message: 'Invite sent',
+      data: {
+        projectId: String(project._id),
+        invited: {
+          user: String(freelancerId),
+          note: note || '',
+          invitedAt: new Date().toISOString()
+        }
+      }
+    });
+  } catch (e) {
+    return handleError(res, e);
+  }
+};
+
+/* =========================================================
+ * Exports (match what routes/projects.js expects!)
+ * =======================================================*/
+module.exports = {
+  // names expected by your router
+  getProjects,
+  getCategories,
+  getProject,
+  createProject,
+  updateProject,
+  deleteProject,
+  inviteFreelancer,
+
+  // (optional) keep aliases if other code imports old names
+  listProjectsForUser: getProjects,
+  getProjectById: getProject,
+};
+  

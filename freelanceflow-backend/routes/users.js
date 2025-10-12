@@ -1,9 +1,16 @@
-// routes/users.js - FIXED VERSION
+// routes/users.js - FIXED ORDER & COMPLETE
 const express = require('express');
 const { body } = require('express-validator');
 const { authenticate } = require('../middleware/auth');
+const {
+  listUsers,
+  getUserById,           // private, richer details
+  // (You still have getPublicProfile in the controller if you want to expose it)
+} = require('../controllers/userController');
 
 const router = express.Router();
+
+/* ----------------- Inline controllers you already had ----------------- */
 
 // Simple profile update controller (inline for now)
 const updateProfile = async (req, res) => {
@@ -15,7 +22,7 @@ const updateProfile = async (req, res) => {
 
     const User = require('../models/User');
     const { validationResult } = require('express-validator');
-    
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('❌ Validation errors:', errors.array());
@@ -29,28 +36,21 @@ const updateProfile = async (req, res) => {
     const userId = req.user._id;
     const updateData = { ...req.body };
 
-    // Don't allow updating sensitive fields
+    // Disallow sensitive fields
     delete updateData.password;
     delete updateData.email;
     delete updateData.role;
     delete updateData.earnings;
     delete updateData.ratings;
 
-    console.log('🔄 Update data after filtering:', updateData);
-
-    // Handle nested profile updates
+    // Handle nested profile merge
     if (updateData.profile) {
       const user = await User.findById(userId);
       if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
+        return res.status(404).json({ success: false, message: 'User not found' });
       }
-
-      // Merge with existing profile data
       updateData.profile = {
-        ...user.profile.toObject(),
+        ...(user.profile ? user.profile.toObject() : {}),
         ...updateData.profile
       };
     }
@@ -58,17 +58,11 @@ const updateProfile = async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       updateData,
-      {
-        new: true,
-        runValidators: true
-      }
+      { new: true, runValidators: true }
     ).select('-password');
 
     if (!updatedUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     console.log('✅ Profile updated successfully');
@@ -78,224 +72,152 @@ const updateProfile = async (req, res) => {
       message: 'Profile updated successfully',
       data: { user: updatedUser }
     });
-
   } catch (error) {
     console.error('❌ Update profile error:', error);
-    
-    // Handle validation errors
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => ({
         field: err.path,
         message: err.message
       }));
-      
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
         errors: validationErrors
       });
     }
-
-    res.status(500).json({
-      success: false,
-      message: 'Server error updating profile'
-    });
+    res.status(500).json({ success: false, message: 'Server error updating profile' });
   }
 };
 
-// Get profile controller
+// Get profile (self)
 const getProfile = async (req, res) => {
   try {
     const User = require('../models/User');
     const user = await User.findById(req.user._id).select('-password');
-    
-    res.status(200).json({
-      success: true,
-      data: { user }
-    });
+    res.status(200).json({ success: true, data: { user } });
   } catch (error) {
     console.error('Get profile error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error fetching profile'
-    });
+    res.status(500).json({ success: false, message: 'Server error fetching profile' });
   }
 };
 
-// Add skill controller
+// Add skill (freelancer)
 const addSkill = async (req, res) => {
   try {
     const User = require('../models/User');
     const { skill } = req.body;
 
     if (!skill || typeof skill !== 'string') {
-      return res.status(400).json({
-        success: false,
-        message: 'Valid skill name is required'
-      });
+      return res.status(400).json({ success: false, message: 'Valid skill name is required' });
     }
 
     const user = await User.findById(req.user._id);
-    
     if (user.role !== 'freelancer') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only freelancers can add skills'
-      });
+      return res.status(403).json({ success: false, message: 'Only freelancers can add skills' });
     }
 
-    // Initialize skills array if it doesn't exist
-    if (!user.profile.skills) {
-      user.profile.skills = [];
-    }
+    if (!user.profile.skills) user.profile.skills = [];
 
-    // Check if skill already exists
     const skillLower = skill.toLowerCase().trim();
-    const existingSkill = user.profile.skills.find(s => 
-      s.toLowerCase() === skillLower
-    );
-
-    if (existingSkill) {
-      return res.status(400).json({
-        success: false,
-        message: 'Skill already exists'
-      });
+    const exists = user.profile.skills.find(s => s.toLowerCase() === skillLower);
+    if (exists) {
+      return res.status(400).json({ success: false, message: 'Skill already exists' });
     }
 
-    // Add new skill
     user.profile.skills.push(skill.trim());
     await user.save();
 
     res.status(200).json({
       success: true,
       message: 'Skill added successfully',
-      data: { 
-        skills: user.profile.skills,
-        user: user
-      }
+      data: { skills: user.profile.skills, user }
     });
-
   } catch (error) {
     console.error('Add skill error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error adding skill'
-    });
+    res.status(500).json({ success: false, message: 'Server error adding skill' });
   }
 };
 
-// Remove skill controller
+// Remove skill (freelancer)
 const removeSkill = async (req, res) => {
   try {
     const User = require('../models/User');
     const { skill } = req.params;
 
     const user = await User.findById(req.user._id);
-    
     if (user.role !== 'freelancer') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only freelancers can remove skills'
-      });
+      return res.status(403).json({ success: false, message: 'Only freelancers can remove skills' });
     }
 
     if (!user.profile.skills || user.profile.skills.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No skills to remove'
-      });
+      return res.status(400).json({ success: false, message: 'No skills to remove' });
     }
 
-    // Remove skill (case insensitive)
     const skillLower = skill.toLowerCase();
-    user.profile.skills = user.profile.skills.filter(s => 
-      s.toLowerCase() !== skillLower
-    );
-
+    user.profile.skills = user.profile.skills.filter(s => s.toLowerCase() !== skillLower);
     await user.save();
 
     res.status(200).json({
       success: true,
       message: 'Skill removed successfully',
-      data: { 
-        skills: user.profile.skills,
-        user: user
-      }
+      data: { skills: user.profile.skills, user }
     });
-
   } catch (error) {
     console.error('Remove skill error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error removing skill'
-    });
+    res.status(500).json({ success: false, message: 'Server error removing skill' });
   }
 };
 
-// Validation middleware
+/* ----------------- Validation ----------------- */
 const updateProfileValidation = [
-  body('name')
-    .optional()
-    .trim()
-    .isLength({ min: 2, max: 50 })
+  body('name').optional().trim().isLength({ min: 2, max: 50 })
     .withMessage('Name must be between 2 and 50 characters'),
-  
-  body('profile.bio')
-    .optional()
-    .trim()
-    .isLength({ max: 1000 })
+
+  body('profile.bio').optional().trim().isLength({ max: 1000 })
     .withMessage('Bio cannot exceed 1000 characters'),
-  
-  body('profile.hourlyRate')
-    .optional()
-    .isNumeric()
-    .custom((value) => value >= 1)
+
+  body('profile.hourlyRate').optional().isNumeric().custom(v => v >= 1)
     .withMessage('Hourly rate must be a positive number'),
-  
-  body('profile.location')
-    .optional()
-    .trim()
-    .isLength({ max: 100 })
+
+  body('profile.location').optional().trim().isLength({ max: 100 })
     .withMessage('Location cannot exceed 100 characters'),
-  
-  body('profile.phone')
-    .optional()
-    .trim()
-    .matches(/^[\+]?[1-9][\d]{0,15}$/)
+
+  body('profile.phone').optional().trim()
+    .matches(/^[+]?[\d\s().-]{6,}$/)
     .withMessage('Please provide a valid phone number'),
-  
-  body('profile.website')
-    .optional()
-    .isURL()
+
+  body('profile.website').optional().isURL()
     .withMessage('Please provide a valid website URL'),
-  
-  body('profile.company')
-    .optional()
-    .trim()
-    .isLength({ max: 100 })
+
+  body('profile.company').optional().trim().isLength({ max: 100 })
     .withMessage('Company name cannot exceed 100 characters')
 ];
 
-// Routes
+/* ----------------- ROUTES (ORDER MATTERS!) ----------------- */
 
-// @route   GET /api/users/profile
+// List users (supports filtering freelancers etc.)
+router.get('/', authenticate, listUsers);
+
+// Current user's profile
 router.get('/profile', authenticate, getProfile);
 
-// @route   PUT /api/users/profile  
+// Update current user's profile
 router.put('/profile', authenticate, updateProfileValidation, updateProfile);
 
-// @route   POST /api/users/skills
+// Skills
 router.post('/skills', authenticate, addSkill);
-
-// @route   DELETE /api/users/skills/:skill
 router.delete('/skills/:skill', authenticate, removeSkill);
+
+// (Optional) public profile route if you want it accessible without auth
+// const { getPublicProfile } = require('../controllers/userController');
+// router.get('/public/:id', getPublicProfile);
 
 // Test route
 router.get('/test', (req, res) => {
-  res.json({
-    success: true,
-    message: 'User routes are working!'
-  });
+  res.json({ success: true, message: 'User routes are working!' });
 });
+
+// ⚠️ Param route MUST be last so it doesn't swallow /profile, /skills, etc.
+router.get('/:id', authenticate, getUserById);
 
 module.exports = router;

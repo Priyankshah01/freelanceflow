@@ -104,7 +104,12 @@ try {
 } catch {
   console.log('⚠️  Proposal routes not found');
 }
-
+try {
+  app.use("/api/admin", require("./routes/admin"));
+  console.log('✅ Admin routes loaded');
+} catch {
+  console.log('⚠️  Admin routes not found');
+}
 /* -------------------------- Error Handling -------------------------- */
 app.use((error, req, res, next) => {
   console.error('Error:', error.message);
