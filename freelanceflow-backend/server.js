@@ -6,117 +6,111 @@ const dotenv = require('dotenv');
 const http = require('http');
 const { Server } = require('socket.io');
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
 
 /* ----------------------------- CORS SETUP ----------------------------- */
+/** Allow local dev + a single FRONTEND_URL from env (Render Static Site/custom domain) */
+const LOCAL_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+];
+const FRONTEND_URL = process.env.FRONTEND_URL; // e.g. https://your-frontend.onrender.com
+
+const ALLOWED_ORIGINS = new Set([...LOCAL_ORIGINS, ...(FRONTEND_URL ? [FRONTEND_URL] : [])]);
+
 const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:5173'
-  ],
+  origin: (origin, cb) => {
+    // Allow non-browser tools (no Origin) & allowed origins
+    if (!origin || ALLOWED_ORIGINS.has(origin)) return cb(null, true);
+    return cb(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Content-Type', 'Authorization']
+  exposedHeaders: ['Content-Type', 'Authorization'],
 };
 
 app.use(cors(corsOptions));
-
-// Preflight support
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    const origin = req.headers.origin;
-    if (origin && corsOptions.origin.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-    }
-    res.header('Vary', 'Origin');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
-    res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
-    return res.sendStatus(204);
-  }
-  next();
-});
 
 /* -------------------------- Body & Logging -------------------------- */
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Origin: ${req.get('origin') || 'none'}`);
-  next();
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.use((req, _res, next) => {
+    console.log(`${req.method} ${req.path} - Origin: ${req.get('origin') || 'none'}`);
+    next();
+  });
+}
+
+const adminRoutes = require("./routes/admin");
+
+// IMPORTANT: mount under /api/admin
+app.use("/api/admin", adminRoutes);
 
 /* -------------------------- Database -------------------------- */
-mongoose.connect(process.env.MONGODB_URI)
+if (!process.env.MONGODB_URI) {
+  console.error('❌ Missing MONGODB_URI in environment');
+  process.exit(1);
+}
+
+mongoose
+  .connect(process.env.MONGODB_URI, {
+    // Add common options if you prefer:
+    // serverSelectionTimeoutMS: 10000,
+  })
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
-  .catch((error) => console.error('❌ MongoDB connection error:', error));
+  .catch((error) => {
+    console.error('❌ MongoDB connection error:', error);
+    process.exit(1);
+  });
 
 /* -------------------------- Base Routes -------------------------- */
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.json({
     success: true,
     message: 'FreelanceFlow API is running!',
     version: '1.0.0',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
-app.get('/api/health', (req, res) => {
+// Standard health path Render likes
+app.get('/api/__health', (_req, res) => {
   res.json({
-    success: true,
-    message: 'API is healthy',
+    ok: true,
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    env: process.env.NODE_ENV || 'development',
   });
 });
 
 /* -------------------------- Load Routes -------------------------- */
-try {
-  app.use('/api/auth', require('./routes/auth'));
-  console.log('✅ Auth routes loaded');
-} catch {
-  console.log('⚠️  Auth routes not found');
-}
+const safeUse = (path, modPath, label) => {
+  try {
+    app.use(path, require(modPath));
+    console.log(`✅ ${label} routes loaded`);
+  } catch (e) {
+    console.log(`⚠️  ${label} routes not found (${modPath})`);
+  }
+};
 
-try {
-  app.use('/api/users', require('./routes/users'));
-  console.log('✅ User routes loaded');
-} catch {
-  console.log('⚠️  User routes not found');
-}
+safeUse('/api/auth', './routes/auth', 'Auth');
+safeUse('/api/users', './routes/users', 'User');
+safeUse('/api/projects', './routes/projects', 'Project');
+safeUse('/api/proposals', './routes/proposals', 'Proposal');
+safeUse('/api/admin', './routes/admin', 'Admin');
 
-try {
-  app.use('/api/projects', require('./routes/projects'));
-  console.log('✅ Project routes loaded');
-} catch {
-  console.log('⚠️  Project routes not found');
-}
-
-try {
-  app.use('/api/proposals', require('./routes/proposals'));
-  console.log('✅ Proposal routes loaded');
-} catch {
-  console.log('⚠️  Proposal routes not found');
-}
-try {
-  app.use("/api/admin", require("./routes/admin"));
-  console.log('✅ Admin routes loaded');
-} catch {
-  console.log('⚠️  Admin routes not found');
-}
 /* -------------------------- Error Handling -------------------------- */
-app.use((error, req, res, next) => {
+app.use((error, _req, res, _next) => {
   console.error('Error:', error.message);
   res.status(error.statusCode || 500).json({
     success: false,
     message: error.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    ...(process.env.NODE_ENV === 'development' && { stack: error.stack }),
   });
 });
 
@@ -126,13 +120,7 @@ app.use((req, res) => {
     success: false,
     message: `Route ${req.originalUrl} not found`,
     method: req.method,
-    availableRoutes: [
-      'GET /',
-      'GET /api/health',
-      'POST /api/auth/register',
-      'POST /api/auth/login',
-      'GET /api/auth/me'
-    ]
+    availableRoutes: ['GET /', 'GET /api/__health'],
   });
 });
 
@@ -142,13 +130,18 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: corsOptions.origin,
-    methods: corsOptions.methods,
-    credentials: true
-  }
+    origin: (origin, cb) => {
+      if (!origin || ALLOWED_ORIGINS.has(origin)) return cb(null, true);
+      return cb(new Error(`Socket.IO CORS blocked for origin: ${origin}`));
+    },
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+  // Optional: tune timeouts for hosted envs
+  // pingTimeout: 20000,
+  // pingInterval: 25000,
 });
 
-// Attach io to app so controllers can emit events
 app.set('io', io);
 
 io.on('connection', (socket) => {
@@ -156,16 +149,19 @@ io.on('connection', (socket) => {
   if (userId) {
     socket.join(`user:${userId}`);
     console.log(`🔌 User connected to room: user:${userId}`);
+  } else {
+    console.log(`🔌 Socket connected: ${socket.id}`);
   }
 
   socket.on('disconnect', () => {
-    console.log(`❌ User disconnected: ${userId || socket.id}`);
+    console.log(`❌ Disconnected: ${userId || socket.id}`);
   });
 });
 
 /* -------------------------- Start Server -------------------------- */
 server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 API Base URL: http://localhost:${PORT}`);
-  console.log(`🌐 Frontend URL: http://localhost:3000 or http://localhost:5173`);
+  console.log(`🚀 Server listening on ${PORT}`);
+  if (FRONTEND_URL) console.log(`🌐 FRONTEND_URL: ${FRONTEND_URL}`);
 });
+
+module.exports = app; // optional for testing

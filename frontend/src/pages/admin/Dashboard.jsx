@@ -1,5 +1,5 @@
 // src/pages/admin/Dashboard.jsx
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, isValidElement } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { fetchOverview } from "../../services/adminApi";
 
@@ -33,13 +33,10 @@ export default function Dashboard() {
   const navigation = [
     { name: "Dashboard", to: "/admin", icon: Icon.Dashboard },
     { name: "Users", to: "/admin/users", icon: Icon.Users },
-    // If you don't have a dedicated /admin/projects route yet,
-    // point Projects/Reports/Revenue/Payouts/Settings to /admin/reports for now.
-    { name: "Projects", to: "/admin/reports", icon: Icon.Projects },
+    { name: "Projects", to: "/admin/projects", icon: Icon.Projects },
     { name: "Reports", to: "/admin/reports", icon: Icon.Reports },
-    { name: "Revenue", to: "/admin/reports", icon: Icon.Revenue },
-    { name: "Payouts", to: "/admin/reports", icon: Icon.Payouts },
-    { name: "Settings", to: "/admin/reports", icon: Icon.Settings },
+    { name: "Revenue", to: "/admin/revenue", icon: Icon.Revenue },
+    { name: "Settings", to: "/admin/settings", icon: Icon.Settings },
   ];
 
   const isActive = (to) =>
@@ -74,6 +71,7 @@ export default function Dashboard() {
             <nav className="mt-8 flex-1 px-4 space-y-2">
               {navigation.map((item) => {
                 const active = isActive(item.to);
+                const ItemIcon = item.icon; // component function
                 return (
                   <Link
                     key={item.name}
@@ -84,7 +82,8 @@ export default function Dashboard() {
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     }`}
                   >
-                    <item.icon />
+                    {/* render icon safely */}
+                    {ItemIcon ? <ItemIcon /> : null}
                     <span className="ml-3">{item.name}</span>
                   </Link>
                 );
@@ -138,9 +137,9 @@ export default function Dashboard() {
                 <StatCard
                   title="Total Users"
                   value={data.counts?.users ?? 0}
-                  change="+12%"
+                  change={null} // optional: compute % change later
                   trend="up"
-                  icon={<Icon.Users />}
+                  icon={Icon.Users}
                   link="/admin/users"
                   linkText="View all"
                   color="blue"
@@ -148,9 +147,9 @@ export default function Dashboard() {
                 <StatCard
                   title="Active Projects"
                   value={data.counts?.projects ?? 0}
-                  change="+5%"
+                  change={null}
                   trend="up"
-                  icon={<Icon.Projects />}
+                  icon={Icon.Projects}
                   link="/admin/reports"
                   linkText="Manage"
                   color="green"
@@ -160,9 +159,9 @@ export default function Dashboard() {
                   value={`$${Number(
                     data.revenue?.find((x) => x._id === "paid")?.total || 0
                   ).toFixed(2)}`}
-                  change="+23%"
+                  change={null}
                   trend="up"
-                  icon={<Icon.Revenue />}
+                  icon={Icon.Revenue}
                   color="purple"
                 />
                 <StatCard
@@ -170,9 +169,9 @@ export default function Dashboard() {
                   value={`$${Number(
                     data.payouts?.find((x) => x._id === "sent")?.total || 0
                   ).toFixed(2)}`}
-                  change="-2%"
+                  change={null}
                   trend="down"
-                  icon={<Icon.Payouts />}
+                  icon={Icon.Payouts}
                   color="orange"
                 />
               </div>
@@ -213,7 +212,8 @@ export default function Dashboard() {
                           {data.trend7d.reduce((sum, day) => sum + day.count, 0)}
                         </span>
                         <span className="text-green-600 dark:text-green-400">
-                          ↑ 15% from last week
+                          {/* You can compute delta vs previous period later */}
+                          ↑
                         </span>
                       </div>
                     </div>
@@ -230,12 +230,13 @@ export default function Dashboard() {
                     Quick Stats
                   </h2>
                   <div className="space-y-4">
+                    {/* Hook these up to real metrics when endpoints are ready */}
                     <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                       <span className="text-sm text-blue-700 dark:text-blue-300">
                         Pending Reviews
                       </span>
                       <span className="font-semibold text-blue-700 dark:text-blue-300">
-                        12
+                        {data.quick?.pendingReviews ?? 0}
                       </span>
                     </div>
                     <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
@@ -243,7 +244,7 @@ export default function Dashboard() {
                         Active Sessions
                       </span>
                       <span className="font-semibold text-green-700 dark:text-green-300">
-                        247
+                        {data.quick?.activeSessions ?? 0}
                       </span>
                     </div>
                     <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -251,7 +252,7 @@ export default function Dashboard() {
                         Support Tickets
                       </span>
                       <span className="font-semibold text-orange-700 dark:text-orange-300">
-                        8
+                        {data.quick?.tickets ?? 0}
                       </span>
                     </div>
                     <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -259,7 +260,7 @@ export default function Dashboard() {
                         System Health
                       </span>
                       <span className="font-semibold text-purple-700 dark:text-purple-300">
-                        98%
+                        {data.quick?.systemHealth ?? "—"}
                       </span>
                     </div>
                   </div>
@@ -299,6 +300,7 @@ export default function Dashboard() {
                 <nav className="mt-8 px-4 space-y-2">
                   {navigation.map((item) => {
                     const active = isActive(item.to);
+                    const ItemIcon = item.icon;
                     return (
                       <Link
                         key={item.name}
@@ -310,7 +312,7 @@ export default function Dashboard() {
                         }`}
                         onClick={() => setSidebarOpen(false)}
                       >
-                        <item.icon />
+                        {ItemIcon ? <ItemIcon /> : null}
                         <span className="ml-3">{item.name}</span>
                       </Link>
                     );
@@ -325,39 +327,91 @@ export default function Dashboard() {
   );
 }
 
-// Stat card
-function StatCard({ title, value, change, trend, icon, link, linkText, color = "gray" }) {
+// ---------- Safe icon renderer inside StatCard ----------
+function StatCard({
+  title,
+  value,
+  change,
+  trend,
+  icon, // can be a component function OR a ready element
+  link,
+  linkText,
+  color = "gray",
+}) {
   const colorClasses = {
-    blue: { bg: "bg-blue-50 dark:bg-blue-900/20", text: "text-blue-700 dark:text-blue-300", icon: "bg-blue-500" },
-    green:{ bg: "bg-green-50 dark:bg-green-900/20", text: "text-green-700 dark:text-green-300", icon: "bg-green-500" },
-    purple:{ bg:"bg-purple-50 dark:bg-purple-900/20", text:"text-purple-700 dark:text-purple-300", icon:"bg-purple-500"},
-    orange:{ bg:"bg-orange-50 dark:bg-orange-900/20", text:"text-orange-700 dark:text-orange-300", icon:"bg-orange-500"},
-    gray:{ bg:"bg-gray-50 dark:bg-gray-900/20", text:"text-gray-700 dark:text-gray-300", icon:"bg-gray-500"},
+    blue: {
+      bg: "bg-blue-50 dark:bg-blue-900/20",
+      text: "text-blue-700 dark:text-blue-300",
+      icon: "bg-blue-500",
+    },
+    green: {
+      bg: "bg-green-50 dark:bg-green-900/20",
+      text: "text-green-700 dark:text-green-300",
+      icon: "bg-green-500",
+    },
+    purple: {
+      bg: "bg-purple-50 dark:bg-purple-900/20",
+      text: "text-purple-700 dark:text-purple-300",
+      icon: "bg-purple-500",
+    },
+    orange: {
+      bg: "bg-orange-50 dark:bg-orange-900/20",
+      text: "text-orange-700 dark:text-orange-300",
+      icon: "bg-orange-500",
+    },
+    gray: {
+      bg: "bg-gray-50 dark:bg-gray-900/20",
+      text: "text-gray-700 dark:text-gray-300",
+      icon: "bg-gray-500",
+    },
   };
-  const colors = colorClasses[color];
+
+  const colors = colorClasses[color] || colorClasses.gray;
+
+  // render icon safely whether it's a component or an element
+  const renderIcon = () => {
+    if (!icon) return null;
+    if (typeof icon === "function") {
+      const IconComp = icon;
+      return <IconComp />;
+    }
+    if (isValidElement(icon)) return icon;
+    return null;
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-all duration-200">
       <div className="flex items-center justify-between mb-4">
         <div className={`p-2 rounded-lg ${colors.bg}`}>
-          <div className={`w-6 h-6 rounded grid place-items-center text-white ${colors.icon}`}>{icon}</div>
+          <div className={`w-6 h-6 rounded grid place-items-center text-white ${colors.icon}`}>
+            {renderIcon()}
+          </div>
         </div>
         {change && (
-          <span className={`text-sm font-medium ${
-            trend === "up" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-          }`}>
+          <span
+            className={`text-sm font-medium ${
+              trend === "up"
+                ? "text-green-600 dark:text-green-400"
+                : "text-red-600 dark:text-red-400"
+            }`}
+          >
             {change}
           </span>
         )}
       </div>
-      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{value}</h3>
+
+      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+        {value}
+      </h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{title}</p>
+
       {link && (
         <Link
           to={link}
           className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 inline-flex items-center"
         >
-          {linkText}<span className="ml-1">→</span>
+          {linkText}
+          <span className="ml-1">→</span>
         </Link>
       )}
     </div>

@@ -30,6 +30,9 @@ import FreelancerPublicProfile from "./pages/client/FreelancerPublicProfile";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminManageUser from "./pages/admin/ManageUser";
 import AdminReports from "./pages/admin/Reports";
+import AdminManageProject from "./pages/admin/ManageProject";
+import AdminSettings from "./pages/admin/Settings";
+import AdminRevenue from "./pages/admin/Revenue";
 
 
 // Styles
@@ -188,7 +191,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route  
+          <Route
             path="/admin/users"
             element={
               <RequireAdmin>
@@ -205,6 +208,34 @@ function App() {
               </RequireAdmin>
             }
           />
+
+          <Route
+            path="/admin/projects"
+            element={
+              <RequireAdmin>
+                <AdminManageProject />
+              </RequireAdmin>
+            }
+          />
+          import AdminSettings from "./pages/admin/Settings";
+
+          <Route
+            path="/admin/settings"
+            element={
+              <RequireAdmin>
+                <AdminSettings />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/revenue"
+            element={
+              <RequireAdmin>
+                <AdminRevenue />
+              </RequireAdmin>
+            }
+          />
+
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />

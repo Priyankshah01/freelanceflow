@@ -1,25 +1,57 @@
-const router = require("express").Router();
-const ctrl = require("../controllers/adminController");
+// routes/admin.js
+const express = require("express");
+const router = express.Router();
 
-// Health check
-router.get("/__ping", (req, res) => res.json({ ok: true, scope: "admin" }));
+const adminController = require("../controllers/adminController");
 
-// Overview / metrics
-router.get("/overview", ctrl.getOverview);
+// If you have a different admin auth middleware, import it and use that instead:
+let requireAdmin = (_req, _res, next) => next();
+try {
+  // optional: use your actual auth guard
+  // Example implementation below if you don't have one
+  requireAdmin = require("../middleware/requireAdmin");
+} catch (_) {
+  // Fallback no-op; don't block in dev if middleware missing
+  console.warn("⚠️  requireAdmin middleware not found; admin routes are unprotected in dev.");
+}
 
-// Users management
-router.get("/users", ctrl.listUsers);
-router.patch("/users/:id/role", ctrl.updateUserRole);
-router.patch("/users/:id/status", ctrl.updateUserStatus);
+/**
+ * IMPORTANT:
+ * Do NOT prefix these with /api/admin — server.js already mounts at /api/admin
+ */
 
-// Projects moderation
-router.get("/projects", ctrl.listProjects);
-router.patch("/projects/:id/status", ctrl.setProjectStatus);
+// Overview
+router.get("/overview", requireAdmin, adminController.getOverview);
 
-// Finance summary
-router.get("/finance/summary", ctrl.financeSummary);
+router.get("/overview", requireAdmin, adminController.getAdminOverview);
 
-// Audit logs (stub for now)
-router.get("/audits", ctrl.listAudits);
+
+// Users
+router.get("/users", requireAdmin, adminController.listUsers);
+router.patch("/users/:id/role", requireAdmin, adminController.updateUserRole);
+router.patch("/users/:id/status", requireAdmin, adminController.updateUserStatus);
+
+// Projects
+router.get("/projects", requireAdmin, adminController.listProjects);
+router.patch("/projects/:id/status", requireAdmin, adminController.setProjectStatus);
+
+// Finance
+router.get("/finance/summary", requireAdmin, adminController.financeSummary);
+
+// Audits
+router.get("/audits", requireAdmin, adminController.listAudits);
+
+// Settings & Health (if you added the Settings page)
+router.get("/settings", requireAdmin, adminController.getSettings);
+router.patch("/settings", requireAdmin, adminController.updateSettings);
+router.get("/health", requireAdmin, adminController.systemHealth);
+
+// Finance: invoices & payouts
+router.get("/finance/invoices", requireAdmin, adminController.listInvoices);
+router.patch("/finance/invoices/:id/status", requireAdmin, adminController.updateInvoiceStatus);
+
+router.get("/finance/payouts", requireAdmin, adminController.listPayouts);
+router.patch("/finance/payouts/:id/status", requireAdmin, adminController.updatePayoutStatus);
+
 
 module.exports = router;
