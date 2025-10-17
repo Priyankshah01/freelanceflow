@@ -15,7 +15,8 @@ import FreelancerDashboard from "./pages/freelancer/Dashboard";
 import FreelancerProfile from "./pages/freelancer/Profile";
 import FreelancerJobs from "./pages/freelancer/Jobs";
 import FreelancerProposals from "./pages/freelancer/Proposals";
-import FreelancerActiveProjects from "./pages/freelancer/projects";
+// Correct import
+import FreelancerActiveProjects from './pages/freelancer/Projects';
 
 // Client pages
 import ClientDashboard from "./pages/client/Dashboard";
