@@ -4,28 +4,20 @@ const API_BASE_URL =
 
 console.log("🌐 Using API base:", API_BASE_URL);
 
-export async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
+export async function api(path, options = {}) {
+  const url = `${BASE}/api${path.startsWith('/') ? path : `/${path}`}`;
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`HTTP ${res.status}: ${text}`);
-  }
-
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
-
 // Example helpers
-export const get = (path) => apiFetch(path);
-export const post = (path, body) => apiFetch(path, { method: 'POST', body: JSON.stringify(body) });
-export const put = (path, body) => apiFetch(path, { method: 'PUT', body: JSON.stringify(body) });
-export const del = (path) => apiFetch(path, { method: 'DELETE' });
+export const get = (path) => api(path);
+export const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body) });
+export const put = (path, body) => api(path, { method: 'PUT', body: JSON.stringify(body) });
+export const del = (path) => api(path, { method: 'DELETE' });
 
 // ApiService class stays mostly the same
 class ApiService {
