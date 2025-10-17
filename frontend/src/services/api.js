@@ -1,6 +1,32 @@
 // src/services/apiService.js - UPDATED WITH PROFILE MANAGEMENT
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+const API_BASE = import.meta.env.VITE_API_URL; 
+// Render injects this automatically from render.yaml (or from .env during local dev)
+
+export async function apiFetch(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`HTTP ${res.status}: ${text}`);
+  }
+
+  return res.json();
+}
+
+// Example helpers you can reuse
+export const get = (path) => apiFetch(path);
+export const post = (path, body) => apiFetch(path, { method: 'POST', body: JSON.stringify(body) });
+export const put = (path, body) => apiFetch(path, { method: 'PUT', body: JSON.stringify(body) });
+export const del = (path) => apiFetch(path, { method: 'DELETE' });
+
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;

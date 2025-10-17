@@ -8,6 +8,7 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Auth/Login";
 import JobDetail from "./pages/JobDetail";
+import Dashboard from "./pages/Dashboard";
 
 // Freelancer pages
 import FreelancerDashboard from "./pages/freelancer/Dashboard";
@@ -55,6 +56,7 @@ function App() {
           {/* Public */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/dashboard" element={<Dashboard />} />
 
           {/* Shared (authenticated) */}
           <Route
