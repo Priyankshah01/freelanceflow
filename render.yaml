@@ -1,39 +1,41 @@
+# render.yaml - Render Blueprint for full-stack deployment
+# Place this file in the ROOT of your repository (same level as /client and /server)
+
 services:
+  # ----------------- Backend Service (Express + MongoDB) -----------------
   - type: web
     name: freelanceflow-backend
-    env: node
+    runtime: node
     rootDir: server
     buildCommand: "npm ci"
     startCommand: "npm start"
     healthCheckPath: "/api/__health"
     plan: free
-    autoDeploy: true
     envVars:
-      - key: NODE_VERSION
-        value: 18
-      # FRONTEND_URL points to the Static Site URL after it's created
-      - key: FRONTEND_URL
-        fromService:
-          name: freelanceflow-frontend
-          type: static_site
-          property: url
-      # Secrets you will fill in Render dashboard after the blueprint creates the service:
+      # Secrets you’ll set manually in the Render Dashboard
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
         sync: false
+      # Automatically inject frontend URL once static site is deployed
+      - key: FRONTEND_URL
+        fromService:
+          name: freelanceflow-frontend
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
 
-  - type: static_site
+  # ----------------- Frontend Service (Vite/React) -----------------
+  - type: web
     name: freelanceflow-frontend
+    runtime: static
     rootDir: client
     buildCommand: "npm ci && npm run build"
     staticPublishPath: "dist"
     plan: free
-    autoDeploy: true
     envVars:
-      # Vite frontend reads the backend URL at build time
+      # Automatically inject backend API URL into Vite build
       - key: VITE_API_URL
         fromService:
           name: freelanceflow-backend
           type: web
-          property: url
+          envVarKey: RENDER_EXTERNAL_URL
