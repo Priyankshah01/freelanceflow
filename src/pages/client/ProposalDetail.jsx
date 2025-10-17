@@ -7,11 +7,7 @@ import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
 
 const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
-  // hard guard against accidental "undefined" fetches
-  if (endpoint.includes('/undefined')) {
-    throw new Error('Invalid proposal id (endpoint contains undefined).');
-  }
-  const res = await fetch(`http://localhost:5000/api${endpoint}`, {
+  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})

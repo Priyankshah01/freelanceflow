@@ -14,23 +14,19 @@ import {
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 
-const API_BASE =
-  import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') || 'http://localhost:5000';
-
 const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`${API_BASE}/api${endpoint}`, {
+  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
-    ...options,
+    ...options
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
   return data;
 };
-
 const fmtMoney = (n = 0) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
     Number(n) || 0

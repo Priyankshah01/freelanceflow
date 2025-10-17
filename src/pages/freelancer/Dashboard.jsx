@@ -17,27 +17,34 @@ import {
 /* ================== API helper ================== */
 const API_BASE =
   import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
+  import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, '') ||
   'http://localhost:5000';
 
 const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`${API_BASE}/api${endpoint}`, {
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     ...options,
   });
-  const data = await res.json().catch(() => ({}));
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    data = {};
+  }
+
   if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
   return data;
 };
 
 /* ================== utils ================== */
 const formatCurrency = (amount = 0) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-    Number(amount) || 0
-  );
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount) || 0);
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
@@ -63,21 +70,20 @@ const statusPillColor = (status) => {
 
 /* ================== component ================== */
 const FreelancerDashboard = () => {
-  const { user } = useAuth(); // might be null on first paint
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  // we’ll compute against this, which can come from context OR /auth/me
   const [effectiveUser, setEffectiveUser] = useState(null);
-
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [pendingProposals, setPendingProposals] = useState([]);
   const [acceptedProposals, setAcceptedProposals] = useState([]);
   const [rejectedProposals, setRejectedProposals] = useState([]);
 
-  // If context has user later, sync it
+  // Sync context user
   useEffect(() => {
-    if (user && user._id) setEffectiveUser(user);
+    const uid = user?._id || user?.id;
+    if (uid) setEffectiveUser(user);
   }, [user]);
 
   const activeProjects = useMemo(() => {
@@ -88,15 +94,11 @@ const FreelancerDashboard = () => {
         (proj, i, arr) =>
           arr.findIndex((x) => String(x?._id || x?.id) === String(proj?._id || proj?.id)) === i
       );
-
     const inProgress = list.filter((p) => p?.status === 'in-progress');
     return inProgress.length ? inProgress : list;
   }, [acceptedProposals]);
 
-  const completedProjects = useMemo(
-    () => activeProjects.filter((p) => p?.status === 'completed'),
-    [activeProjects]
-  );
+  const completedProjects = useMemo(() => activeProjects.filter((p) => p?.status === 'completed'), [activeProjects]);
 
   const stats = useMemo(() => {
     return {
@@ -110,7 +112,7 @@ const FreelancerDashboard = () => {
   }, [activeProjects, completedProjects.length, pendingProposals.length, effectiveUser]);
 
   const recentProjects = useMemo(() => {
-    const rows = (acceptedProposals || [])
+    return (acceptedProposals || [])
       .map((p) => ({
         id: String(p.project?._id || p.project?.id || p._id),
         title: p.project?.title || 'Untitled Project',
@@ -121,13 +123,11 @@ const FreelancerDashboard = () => {
         progress: Number(p.project?.workCompleted ?? 0),
         budget:
           p.project?.budget?.type === 'fixed'
-            ? (p.project?.budget?.amount || 0)
-            : (p.project?.budget?.hourlyRate?.max || p.project?.budget?.hourlyRate?.min || 0),
+            ? p.project?.budget?.amount || 0
+            : p.project?.budget?.hourlyRate?.max || p.project?.budget?.hourlyRate?.min || 0,
         budgetType: p.project?.budget?.type || 'fixed',
       }))
       .slice(0, 5);
-
-    return rows;
   }, [acceptedProposals]);
 
   const load = async () => {
@@ -135,8 +135,7 @@ const FreelancerDashboard = () => {
     setErr('');
 
     try {
-      // 1) Ensure we have a user
-      let u = user && user._id ? user : null;
+      let u = user && (user._id || user.id) ? user : null;
 
       if (!u) {
         const token = localStorage.getItem('token');
@@ -145,19 +144,18 @@ const FreelancerDashboard = () => {
           setLoading(false);
           return;
         }
-        // try to recover from server
         try {
           const me = await api('/auth/me');
           u = me?.data?.user || null;
           if (u) setEffectiveUser(u);
-        } catch {
+        } catch (e) {
+          console.error('Recover user failed:', e);
           setErr('Session expired or user not found. Please log in again.');
           setLoading(false);
           return;
         }
       }
 
-      // 2) Load proposals (role-aware on backend; as freelancer, this returns only mine)
       const [pend, acc, rej] = await Promise.all([
         api('/proposals?status=pending&limit=100'),
         api('/proposals?status=accepted&limit=100'),
@@ -175,11 +173,9 @@ const FreelancerDashboard = () => {
     }
   };
 
-  // Load on mount and whenever the context user id changes
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?._id]);
+  }, [user?._id, user?.id]);
 
   if (loading) {
     return (
@@ -244,8 +240,7 @@ const FreelancerDashboard = () => {
                       : 'bg-red-100 text-red-800'
                   }`}
                 >
-                  {u.profile.availability.charAt(0).toUpperCase() +
-                    u.profile.availability.slice(1)}
+                  {u.profile.availability.charAt(0).toUpperCase() + u.profile.availability.slice(1)}
                 </span>
               </>
             )}
@@ -271,10 +266,7 @@ const FreelancerDashboard = () => {
             },
             {
               label: 'Avg. Rating',
-              value:
-                stats.averageRating > 0
-                  ? `${Number(stats.averageRating).toFixed(1)} ⭐`
-                  : 'No ratings yet',
+              value: stats.averageRating > 0 ? `${Number(stats.averageRating).toFixed(1)} ⭐` : 'No ratings yet',
               icon: <Star className="w-6 h-6" />,
               color: 'text-yellow-600 bg-yellow-100',
               change: `${u?.ratings?.count || 0} reviews`,
@@ -304,182 +296,62 @@ const FreelancerDashboard = () => {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Profile Overview */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Profile Overview</h2>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                    {u?.avatar ? (
-                      <img
-                        src={u.avatar}
-                        alt={u.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-indigo-600 font-semibold text-lg">
-                        {u?.name?.charAt(0)?.toUpperCase()}
-                      </span>
-                    )}
+        {/* Recent Projects */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Projects</h2>
+          {recentProjects.length ? (
+            <div className="space-y-4">
+              {recentProjects.map((p) => (
+                <div key={p.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="flex flex-col">
+                    <Link to={`/projects/${p.id}`} className="font-medium text-gray-900 hover:underline">
+                      {p.title}
+                    </Link>
+                    <p className="text-sm text-gray-500">{p.client}</p>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{u?.name || 'Freelancer'}</h3>
-                    <p className="text-sm text-gray-600">{u?.email || ''}</p>
-                  </div>
-                </div>
-
-                {u?.profile?.bio && (
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Bio</h4>
-                    <p className="text-sm text-gray-600 leading-relaxed">{u.profile.bio}</p>
-                  </div>
-                )}
-
-                {!!(u?.profile?.skills?.length) && (
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Skills</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {u.profile.skills.slice(0, 6).map((skill, i) => (
-                        <span
-                          key={`${skill}-${i}`}
-                          className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                      {u.profile.skills.length > 6 && (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                          +{u.profile.skills.length - 6} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {u?.profile?.hourlyRate && (
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Hourly Rate</h4>
-                    <p className="text-lg font-semibold text-green-600">
-                      ${u.profile.hourlyRate}/hour
+                  <div className="flex items-center space-x-4">
+                    <span className={`px-2 py-1 rounded-full text-xs ${statusPillColor(p.status)}`}>
+                      {p.status.replace('-', ' ')}
+                    </span>
+                    <p className="text-sm text-gray-500">{formatDate(p.deadline)}</p>
+                    <p className="text-sm text-gray-500">
+                      {p.budgetType === 'fixed' ? formatCurrency(p.budget) : `$${p.budget}/hr`}
                     </p>
                   </div>
-                )}
-
-                <div className="pt-4 border-t border-gray-200">
-                  <Link to="/freelancer/profile">
-                    <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors">
-                      Edit Profile
-                    </button>
-                  </Link>
                 </div>
-              </div>
+              ))}
             </div>
-          </div>
-
-          {/* Recent Projects */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Recent Projects</h2>
-            </div>
-            <div className="p-6">
-              {recentProjects.length > 0 ? (
-                <div className="space-y-4">
-                  {recentProjects.map((project) => (
-                    <div
-                      key={project.id}
-                      className="border border-gray-100 rounded-lg p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-semibold text-gray-900">{project.title}</h3>
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full ${statusPillColor(
-                            project.status
-                          )}`}
-                        >
-                          {project.status?.replace('-', ' ') || 'in progress'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-3">Client: {project.client}</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <span className="text-sm text-gray-500 flex items-center">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            Due: {formatDate(project.deadline)}
-                          </span>
-                          <span className="text-sm text-gray-500 flex items-center">
-                            <DollarSign className="w-4 h-4 mr-1" />
-                            {project.budgetType === 'fixed'
-                              ? formatCurrency(project.budget)
-                              : `${formatCurrency(project.budget)}/hr`}
-                          </span>
-                        </div>
-                        <div className="flex items-center">
-                          <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                            <div
-                              className="bg-indigo-600 h-2 rounded-full"
-                              style={{
-                                width: `${Math.min(100, Math.max(0, project.progress))}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="text-sm text-gray-600">
-                            {Math.min(100, Math.max(0, project.progress))}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="font-medium text-gray-900 mb-2">No active projects</h3>
-                  <p className="text-gray-600 mb-4">Browse available jobs to find your next project.</p>
-                  <button
-                    onClick={() => navigate('/freelancer/jobs')}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors"
-                  >
-                    Browse Jobs
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          ) : (
+            <p className="text-gray-500">No recent projects.</p>
+          )}
         </div>
 
-        {/* Quick links */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            onClick={() => navigate('/freelancer/proposals')}
-            className="w-full bg-white border border-gray-200 rounded-md p-4 text-left hover:shadow-sm"
+        {/* Quick Links */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Link
+            to="/proposals"
+            className="bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg p-6 flex flex-col items-center justify-center"
           >
-            <div className="text-sm text-gray-500">Proposals</div>
-            <div className="text-lg font-semibold text-gray-900">
-              Pending: {pendingProposals.length}
-            </div>
-          </button>
-          <button
-            onClick={() => navigate('/freelancer/projects')}
-            className="w-full bg-white border border-gray-200 rounded-md p-4 text-left hover:shadow-sm"
+            <Briefcase className="w-8 h-8 text-indigo-600 mb-2" />
+            <p className="font-medium text-gray-900">View Proposals</p>
+            <p className="text-sm text-gray-500">{pendingProposals.length} pending</p>
+          </Link>
+          <Link
+            to="/projects"
+            className="bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg p-6 flex flex-col items-center justify-center"
           >
-            <div className="text-sm text-gray-500">Projects</div>
-            <div className="text-lg font-semibold text-gray-900">
-              Active: {activeProjects.length}
-            </div>
-          </button>
-          <button
-            onClick={() => navigate('/freelancer/earnings')}
-            className="w-full bg-white border border-gray-200 rounded-md p-4 text-left hover:shadow-sm"
+            <DollarSign className="w-8 h-8 text-green-600 mb-2" />
+            <p className="font-medium text-gray-900">My Projects</p>
+            <p className="text-sm text-gray-500">{activeProjects.length} active</p>
+          </Link>
+          <Link
+            to="/profile"
+            className="bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 rounded-lg p-6 flex flex-col items-center justify-center"
           >
-            <div className="text-sm text-gray-500">Earnings</div>
-            <div className="text-lg font-semibold text-gray-900">
-              {formatCurrency(stats.totalEarnings)}
-            </div>
-          </button>
+            <Star className="w-8 h-8 text-yellow-600 mb-2" />
+            <p className="font-medium text-gray-900">Profile</p>
+            <p className="text-sm text-gray-500">Update your info</p>
+          </Link>
         </div>
       </div>
     </DashboardLayout>

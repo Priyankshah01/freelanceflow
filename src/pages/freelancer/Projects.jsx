@@ -15,9 +15,10 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-const api = async (endpoint, options = {}) => {
+// Updated API request to point to Render
+const apiRequest = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`http://localhost:5000/api${endpoint}`, {
+  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -45,7 +46,7 @@ export default function FreelancerActiveProjects() {
     setLoading(true);
     try {
       // Active = proposals you made that are accepted
-      const res = await api('/proposals?status=accepted&limit=100&page=1');
+      const res = await apiRequest('/proposals?status=accepted&limit=100&page=1');
       setItems(res?.data?.proposals || []);
       setMsg('');
     } catch (e) {
@@ -110,7 +111,6 @@ export default function FreelancerActiveProjects() {
                 const clientName =
                   p?.project?.client?.name || p?.freelancer?.client?.name || 'Client';
 
-                // virtual available if you used it; otherwise compute quick total
                 const milestonesTotal = Array.isArray(p?.milestones)
                   ? p.milestones.reduce((s, m) => s + (Number(m.amount) || 0), 0)
                   : 0;
@@ -149,7 +149,10 @@ export default function FreelancerActiveProjects() {
                           </span>
                           {p?.submittedAt && (
                             <span className="text-xs text-gray-500">
-                              Accepted on: {new Date(p?.respondedAt || p?.updatedAt || p?.submittedAt).toLocaleString()}
+                              Accepted on:{' '}
+                              {new Date(
+                                p?.respondedAt || p?.updatedAt || p?.submittedAt
+                              ).toLocaleString()}
                             </span>
                           )}
                         </div>
@@ -172,12 +175,9 @@ export default function FreelancerActiveProjects() {
                         >
                           <MessageSquare className="w-4 h-4 mr-1" /> Message
                         </Button>
-                        {/* Optional: allow withdraw after accept? usually disabled */}
-                        {/* <Button variant="destructive" onClick={() => ...}>Withdraw</Button> */}
                       </div>
                     </div>
 
-                    {/* Optional: show milestones */}
                     {Array.isArray(p?.milestones) && p.milestones.length > 0 && (
                       <div className="mt-3 border-t border-gray-100 pt-3">
                         <div className="text-sm font-medium text-gray-900 mb-1">

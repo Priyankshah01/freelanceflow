@@ -4,17 +4,11 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Button from '../../components/common/Button';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import {
-  Loader2,
-  Filter,
-  Eye,
-  RefreshCcw,
-  FileText,
-} from 'lucide-react';
+import { Loader2, Filter, Eye, RefreshCcw, FileText } from 'lucide-react';
 
-const api = async (endpoint, options = {}) => {
+const apiRequest = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`http://localhost:5000/api${endpoint}`, {
+  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -25,6 +19,7 @@ const api = async (endpoint, options = {}) => {
   if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
   return data;
 };
+
 
 const StatusPill = ({ status }) => {
   const map = {
@@ -50,7 +45,7 @@ export default function FreelancerProposals() {
   const [msg, setMsg] = useState('');
   const [lastLoadedAt, setLastLoadedAt] = useState(null);
 
-  const status = params.get('status') || '';
+  const statusFilter = params.get('status') || '';
   const page = Number(params.get('page') || 1);
 
   const canSee = useMemo(
@@ -58,32 +53,32 @@ export default function FreelancerProposals() {
     [user]
   );
 
-  const load = async () => {
+  const loadProposals = async () => {
     setLoading(true);
     try {
       const qs = new URLSearchParams();
-      if (status) qs.set('status', status);
+      if (statusFilter) qs.set('status', statusFilter);
       qs.set('page', String(page));
       qs.set('limit', '20');
 
-      const res = await api(`/proposals?${qs.toString()}`);
+      const res = await apiRequest(`/proposals?${qs.toString()}`);
       setProposals(res?.data?.proposals || []);
       setMsg('');
       setLastLoadedAt(new Date());
     } catch (e) {
       setMsg(e.message || 'Failed to load proposals');
+      setProposals([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    load();
-    // light polling to catch updates every 30s
-    const id = setInterval(load, 30000);
-    return () => clearInterval(id);
+    loadProposals();
+    const interval = setInterval(loadProposals, 30000); // refresh every 30s
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, page]);
+  }, [statusFilter, page]);
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(params.toString());
@@ -104,6 +99,7 @@ export default function FreelancerProposals() {
   return (
     <DashboardLayout>
       <div className="p-6 max-w-6xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">My Proposals</h1>
           <div className="flex items-center gap-2">
@@ -112,9 +108,9 @@ export default function FreelancerProposals() {
                 Updated {lastLoadedAt.toLocaleTimeString()}
               </span>
             )}
-            <Button variant="outline" onClick={load}>
-              <RefreshCcw className="w-4 h-4 mr-2" />
-              Refresh
+            <Button variant="outline" onClick={loadProposals} className="flex items-center space-x-2">
+              <RefreshCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
             </Button>
           </div>
         </div>
@@ -124,7 +120,7 @@ export default function FreelancerProposals() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar filters */}
+          {/* Sidebar Filters */}
           <aside className="lg:col-span-1 space-y-4">
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex items-center mb-3">
@@ -133,9 +129,9 @@ export default function FreelancerProposals() {
               </div>
               <label className="block text-xs text-gray-500 mb-1">Status</label>
               <select
-                value={status}
+                value={statusFilter}
                 onChange={(e) => setFilter('status', e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="">All</option>
                 <option value="pending">Pending</option>
@@ -165,18 +161,16 @@ export default function FreelancerProposals() {
               ) : (
                 <ul className="divide-y divide-gray-200">
                   {proposals.map((p, idx) => {
-                    const pid = p?.id || p?._id; // API returns id via transform; fallback to _id
+                    const pid = p?.id || p?._id;
                     const projectId = p?.project?._id || p?.project?.id || p?.project;
-                    const key =
-                      pid ||
-                      `${projectId}-${p?.freelancer?._id || p?.freelancer}-${idx}`;
+                    const key = pid || `${projectId}-${p?.freelancer?._id || p?.freelancer}-${idx}`;
 
                     return (
-                      <li key={key} className="p-4">
+                      <li key={key} className="p-4 hover:bg-gray-50 rounded transition">
                         <div className="flex items-center justify-between">
-                          <div>
+                          <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-gray-900">
+                              <span className="font-semibold text-gray-900 line-clamp-1">
                                 {p.project?.title || 'Project'}
                               </span>
                               <StatusPill status={p.status} />
@@ -202,8 +196,8 @@ export default function FreelancerProposals() {
                             {projectId && (
                               <Button
                                 variant="outline"
+                                size="sm"
                                 onClick={() => navigate(`/jobs/${projectId}`)}
-                                title="View job post"
                               >
                                 <Eye className="w-4 h-4 mr-1" /> Job
                               </Button>

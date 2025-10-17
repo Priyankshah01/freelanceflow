@@ -8,7 +8,7 @@ import { CheckCircle, XCircle, Eye, Loader2, Filter, Users, Inbox } from 'lucide
 
 const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`http://localhost:5000/api${endpoint}`, {
+  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -16,12 +16,7 @@ const api = async (endpoint, options = {}) => {
     ...options
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(data?.message || `HTTP ${res.status}`);
-    err.status = res.status;
-    err.errors = data?.errors;
-    throw err;
-  }
+  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
   return data;
 };
 

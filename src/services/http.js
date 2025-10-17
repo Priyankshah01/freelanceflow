@@ -13,7 +13,7 @@
  *   "http://localhost:5000/api/"      -> "http://localhost:5000"
  */
 export function getApiRoot() {
-  let root = (import.meta.env.VITE_API_URL || "http://localhost:5000").trim();
+  let root = (import.meta.env.VITE_BACKEND_URL || "http://localhost:5000").trim();
 
   // remove trailing slashes
   root = root.replace(/\/+$/, "");
@@ -61,6 +61,7 @@ export function makeClient(segment /* e.g., "admin" */) {
       } catch { /* ignore JSON parse error */ }
 
       if (res.status === 401) {
+        // Auto logout if unauthorized
         localStorage.removeItem("token");
         localStorage.removeItem("user");
       }
