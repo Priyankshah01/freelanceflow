@@ -23,6 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
+node_modules
 .env
-.env.local
-.env.*.local
+.DS_Store
