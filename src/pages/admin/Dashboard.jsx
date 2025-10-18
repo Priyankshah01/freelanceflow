@@ -119,7 +119,7 @@ export default function Dashboard() {
 
             <div className="flex items-center space-x-4">
               <button className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                <LogOut className="mr-2 h-4 w-4" />
+                
                 Sign Out
               </button>
               <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full grid place-items-center text-white font-semibold">
