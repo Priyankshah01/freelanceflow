@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "client/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "build" }
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "https://freelanceflow-backend-01k4.onrender.com/api/$1" },
+    { "src": "/(.*)", "dest": "/client/$1" }
+  ]
+}
