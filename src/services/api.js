@@ -1,25 +1,17 @@
 // src/services/apiService.js
-const API_BASE_URL =
-  import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
 
-console.log("🌐 Using API base:", API_BASE_URL);
+// ONE decision: call Render in production, localhost in dev.
+// No vercel.json, no proxy, no env vars needed.
+const isLocalhost =
+  typeof window !== 'undefined' &&
+  /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
 
-export async function api(path, options = {}) {
-  const url = `${BASE}/api${path.startsWith('/') ? path : `/${path}`}`;
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
-// Example helpers
-export const get = (path) => api(path);
-export const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body) });
-export const put = (path, body) => api(path, { method: 'PUT', body: JSON.stringify(body) });
-export const del = (path) => api(path, { method: 'DELETE' });
+const API_BASE_URL = isLocalhost
+  ? 'http://localhost:5000/api'
+  : 'https://freelanceflow-backend-01k4.onrender.com/api';
 
-// ApiService class stays mostly the same
+console.log('🌐 Using API base:', API_BASE_URL);
+
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
@@ -27,56 +19,78 @@ class ApiService {
 
   getAuthHeaders() {
     const token = localStorage.getItem('token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` })
-    };
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
+    const url = `${this.baseURL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+
+    const headers = {
+      ...this.getAuthHeaders(),
+      ...(options.headers || {}),
+    };
+
+    let body = options.body;
+    if (body && typeof body !== 'string' && !(body instanceof FormData)) {
+      body = JSON.stringify(body);
+      headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+    }
+
     const config = {
-      headers: this.getAuthHeaders(),
-      ...options
+      method: options.method || 'GET',
+      headers,
+      body: options.method && options.method !== 'GET' ? body : undefined,
     };
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
-        let errorMessage;
+        let message = `HTTP ${response.status}`;
         try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || `HTTP error! status: ${response.status}`;
-        } catch {
-          errorMessage = `HTTP error! status: ${response.status}`;
-        }
+          const data = await response.json();
+          message = data.message || message;
+        } catch {}
 
         if (response.status === 401) {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          window.location.href = '/login';
+          if (typeof window !== 'undefined') window.location.href = '/login';
         }
-
-        throw new Error(errorMessage);
+        throw new Error(message);
       }
 
-      return await response.json();
-    } catch (error) {
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      if (response.status === 204) return null;
+      const ct = response.headers.get('content-type') || '';
+      return ct.includes('application/json') ? response.json() : response.text();
+    } catch (err) {
+      if (err instanceof TypeError && /Failed to fetch/i.test(err.message)) {
         throw new Error('Unable to connect to server. Please check if the backend is running.');
       }
-      throw error;
+      throw err;
     }
   }
 
-  // Authentication
-  async login(credentials) { return this.request('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }); }
-  async register(userData) { return this.request('/auth/register', { method: 'POST', body: JSON.stringify(userData) }); }
-  async getProfile() { return this.request('/auth/me'); }
-  async logout() { return this.request('/auth/logout', { method: 'POST' }); }
+  // -------- Auth --------
+  login(credentials) { return this.request('/auth/login', { method: 'POST', body: credentials }); }
+  register(userData) { return this.request('/auth/register', { method: 'POST', body: userData }); }
+  getProfile() { return this.request('/auth/me'); }
+  logout() { return this.request('/auth/logout', { method: 'POST' }); }
 
-  // ... other methods unchanged
+  // -------- Admin (examples) --------
+  adminLogin(credentials) { return this.request('/auth/admin/login', { method: 'POST', body: credentials }); }
+  getAdminOverview() { return this.request('/admin/overview'); }
+
+  // add the rest...
 }
 
-export default new ApiService();
+const apiService = new ApiService();
+export default apiService;
+
+// Convenience wrappers (keeps existing imports working)
+export const get = (path) => apiService.request(path);
+export const post = (path, body) => apiService.request(path, { method: 'POST', body });
+export const put = (path, body) => apiService.request(path, { method: 'PUT', body });
+export const del = (path) => apiService.request(path, { method: 'DELETE' });
