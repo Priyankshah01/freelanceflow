@@ -1,90 +1,82 @@
 // src/services/adminApi.js
 // Admin endpoints using the shared smart client.
 
-import { makeClient } from "./http";
+import { makeClient } from './http';
 
-// Base client: {API_ROOT}/api/admin
-const admin = makeClient("admin");
+// Base client: {API_ROOT}/admin
+const admin = makeClient('admin');
 
-// Small helper to build query strings safely
+// Helper to build query strings
 const toQS = (params = {}) => {
   const qs = new URLSearchParams(params).toString();
-  return qs ? `?${qs}` : "";
+  return qs ? `?${qs}` : '';
 };
 
 /* -------- Overview -------- */
-export const fetchOverview = () => admin.req("/overview");
-
+export const fetchOverview = () => admin.req('overview');
 
 /* -------- Users -------- */
-export const listUsers = (params = {}) => admin.req(`/users${toQS(params)}`);
+export const listUsers = (params = {}) => admin.req(`users${toQS(params)}`);
 
 export const updateUserRole = (id, role) =>
-  admin.req(`/users/${id}/role`, {
-    method: "PATCH",
-    body: JSON.stringify({ role }),
+  admin.req(`users/${id}/role`, {
+    method: 'PATCH',
+    body: { role },
   });
 
 export const updateUserStatus = (id, status) =>
-  admin.req(`/users/${id}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ status }),
+  admin.req(`users/${id}/status`, {
+    method: 'PATCH',
+    body: { status },
   });
 
 /* -------- Projects -------- */
 export const listProjects = (params = {}) =>
-  admin.req(`/projects${toQS(params)}`);
+  admin.req(`projects${toQS(params)}`);
 
 export const setProjectStatus = (id, status) =>
-  admin.req(`/projects/${id}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ status }),
+  admin.req(`projects/${id}/status`, {
+    method: 'PATCH',
+    body: { status },
   });
 
 /* -------- Finance -------- */
-export const getFinanceSummary = () => admin.req("/finance/summary");
+export const getFinanceSummary = () => admin.req('finance/summary');
 
 /* -------- Audits -------- */
 export const listAudits = (params = {}) =>
-  admin.req(`/audits${toQS(params)}`);
+  admin.req(`audits${toQS(params)}`);
 
 /* -------- Settings & Health -------- */
-export const getAdminSettings = () => admin.req("/settings");
+export const getAdminSettings = () => admin.req('settings');
 
 export const updateAdminSettings = (payload) =>
-  admin.req("/settings", {
-    method: "PATCH",
-    body: JSON.stringify(payload),
+  admin.req('settings', {
+    method: 'PATCH',
+    body: payload,
   });
 
-export const getSystemHealth = () => admin.req("/health");
+export const getSystemHealth = () => admin.req('health');
 
 /* -------- Revenue: Invoices -------- */
 export const listInvoices = (params = {}) =>
-  admin.req(`/finance/invoices${(() => {
-    const qs = new URLSearchParams(params).toString();
-    return qs ? `?${qs}` : "";
-  })()}`);
+  admin.req(`finance/invoices${toQS(params)}`);
 
 export const updateInvoiceStatus = (id, status) =>
-  admin.req(`/finance/invoices/${id}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ status }),
+  admin.req(`finance/invoices/${id}/status`, {
+    method: 'PATCH',
+    body: { status },
   });
 
 /* -------- Revenue: Payouts -------- */
 export const listPayouts = (params = {}) =>
-  admin.req(`/finance/payouts${(() => {
-    const qs = new URLSearchParams(params).toString();
-    return qs ? `?${qs}` : "";
-  })()}`);
+  admin.req(`finance/payouts${toQS(params)}`);
 
 export const updatePayoutStatus = (id, status) =>
-  admin.req(`/finance/payouts/${id}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ status }),
+  admin.req(`finance/payouts/${id}/status`, {
+    method: 'PATCH',
+    body: { status },
   });
 
-
-/* -------- Optional Ping (only if you created this route) -------- */
-export const pingAdmin = () => admin.req("/__ping").catch(() => null);
+/* -------- Optional Ping -------- */
+export const pingAdmin = () => admin.req('__ping').catch(() => null);
