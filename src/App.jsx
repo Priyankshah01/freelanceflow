@@ -42,7 +42,7 @@ import AdminRevenue from "./pages/admin/Revenue";
 
 import "./styles/index.css";
 
-/* -------- Admin guard (uses the same AuthContext) -------- */
+/* -------- Admin guard -------- */
 function RequireAdmin({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
@@ -55,13 +55,12 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* PUBLIC ROUTES */}
+        {/* PUBLIC */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
-        {/* old demo dashboard / public dashboard */}
         <Route path="/dashboard" element={<Dashboard />} />
 
-        {/* AUTH’D SHARED ROUTES */}
+        {/* SHARED AUTH */}
         <Route
           path="/jobs/:id"
           element={
@@ -71,7 +70,7 @@ function App() {
           }
         />
 
-        {/* =============== FREELANCER ROUTES =============== */}
+        {/* FREELANCER */}
         <Route
           path="/freelancer/dashboard"
           element={
@@ -113,7 +112,7 @@ function App() {
           }
         />
 
-        {/* ✅ BACKWARD-COMPAT FREELANCER ROUTES (your old /dashboard/freelancer/...) */}
+        {/* ✅ BACKWARD-COMPAT FREELANCER PATHS */}
         <Route
           path="/dashboard/freelancer"
           element={
@@ -147,7 +146,7 @@ function App() {
           }
         />
 
-        {/* =============== CLIENT ROUTES =============== */}
+        {/* CLIENT */}
         <Route
           path="/client/dashboard"
           element={
@@ -213,7 +212,7 @@ function App() {
           }
         />
 
-        {/* ✅ BACKWARD-COMPAT CLIENT ROUTES (because your dashboard buttons used /dashboard/client/...) */}
+        {/* ✅ BACKWARD-COMPAT CLIENT PATHS (these match your UI buttons) */}
         <Route
           path="/dashboard/client"
           element={
@@ -279,7 +278,7 @@ function App() {
           }
         />
 
-        {/* =============== ADMIN ROUTES =============== */}
+        {/* ADMIN */}
         <Route
           path="/admin"
           element={
@@ -337,7 +336,7 @@ function App() {
           }
         />
 
-        {/* CATCH-ALL */}
+        {/* FALLBACK */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
