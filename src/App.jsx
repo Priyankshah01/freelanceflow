@@ -16,7 +16,7 @@ import FreelancerProfile from "./pages/freelancer/Profile";
 import FreelancerJobs from "./pages/freelancer/Jobs";
 import FreelancerProposals from "./pages/freelancer/Proposals";
 // Correct import
-import FreelancerActiveProjects from './pages/freelancer/Projects';
+import FreelancerActiveProjects from  "./pages/freelancer/Projects";
 
 // Client pages
 import ClientDashboard from "./pages/client/Dashboard";
@@ -220,7 +220,6 @@ function App() {
               </RequireAdmin>
             }
           />
-          import AdminSettings from "./pages/admin/Settings";
 
           <Route
             path="/admin/settings"
