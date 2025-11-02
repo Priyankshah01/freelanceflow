@@ -11,11 +11,11 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 // PUBLIC PAGES
 import LandingPage from "./pages/LandingPage";
-import EmployersPage from "./pages/public/Employers";
-import FreelancersPage from "./pages/public/Freelancers";
-import BlogPage from "./pages/public/Blog";
-import BlogPostPage from "./pages/public/BlogPost";
-import ContactPage from "./pages/public/Contact";
+import EmployersPage from "./pages/Employers";
+import FreelancersPage from "./pages/Freelancers";
+import BlogPage from "./pages/Blog";
+import BlogPostPage from "./pages/BlogPost";
+import ContactPage from "./pages/Contact";
 import Login from "./pages/Auth/Login";
 import Dashboard from "./pages/Dashboard";
 
