@@ -1,3 +1,4 @@
+// src/pages/client/Projects.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
@@ -14,19 +15,25 @@ import {
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 
+// 🔗 use the same API base everywhere
+const API_BASE =
+  import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
+  'https://freelanceflow-backend-01k4.onrender.com/api';
+
 const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    ...options
+    ...options,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
   return data;
 };
+
 const fmtMoney = (n = 0) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
     Number(n) || 0
@@ -49,7 +56,11 @@ const StatusPill = ({ status }) => {
     dispute: 'bg-yellow-100 text-yellow-800',
   };
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] || 'bg-gray-100 text-gray-800'}`}>
+    <span
+      className={`px-2 py-1 rounded-full text-xs font-medium ${
+        map[status] || 'bg-gray-100 text-gray-800'
+      }`}
+    >
       {String(status || '').replace('-', ' ')}
     </span>
   );
@@ -63,7 +74,8 @@ const Projects = () => {
   const [projects, setProjects] = useState([]);
   const [msg, setMsg] = useState('');
 
-  const status = params.get('status') || 'in-progress'; // default tab
+  // default tab
+  const status = params.get('status') || 'in-progress';
   const page = Number(params.get('page') || 1);
 
   const setFilter = (key, value) => {
@@ -78,8 +90,6 @@ const Projects = () => {
     setLoading(true);
     setMsg('');
     try {
-      // backend route suggestion:
-      // GET /api/projects?mine=client&status=<status>&page=<page>&limit=20
       const qs = new URLSearchParams();
       qs.set('mine', 'client');
       if (status) qs.set('status', status);
@@ -124,6 +134,7 @@ const Projects = () => {
     }
   };
 
+  // 👇 keep the same tab keys
   const tabs = useMemo(
     () => [
       { key: 'open', label: 'Open' },
@@ -142,7 +153,9 @@ const Projects = () => {
         </div>
 
         {msg && (
-          <div className="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-700">{msg}</div>
+          <div className="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-700">
+            {msg}
+          </div>
         )}
 
         {/* Tabs */}
@@ -165,21 +178,41 @@ const Projects = () => {
           })}
           <div className="ml-auto text-sm text-gray-500 flex items-center">
             <Filter className="w-4 h-4 mr-2" />
-            Status: <span className="ml-1 font-medium">{tabs.find(t => t.key === status)?.label || 'In Progress'}</span>
+            Status:{' '}
+            <span className="ml-1 font-medium">
+              {tabs.find((t) => t.key === status)?.label || 'In Progress'}
+            </span>
           </div>
         </div>
 
         {/* List */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-700">Projects • {tabs.find(t => t.key === status)?.label}</div>
+            <div className="text-sm text-gray-700">
+              Projects • {tabs.find((t) => t.key === status)?.label}
+            </div>
           </div>
 
           {loading ? (
             <div className="p-10 flex items-center justify-center text-gray-500">
-              <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              <svg
+                className="animate-spin h-5 w-5 mr-2"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                ></path>
               </svg>
               Loading...
             </div>
@@ -192,9 +225,11 @@ const Projects = () => {
             <ul className="divide-y divide-gray-200">
               {projects.map((p) => {
                 const projectId = String(p._id || p.id);
-                const assigned = p.assignedFreelancer || p.freelancer || null; // depending on your model
+                const assigned = p.assignedFreelancer || p.freelancer || null;
                 const milestones = Array.isArray(p.milestones) ? p.milestones : [];
-                const completedMs = milestones.filter(m => m.status === 'completed' || m.status === 'approved').length;
+                const completedMs = milestones.filter(
+                  (m) => m.status === 'completed' || m.status === 'approved'
+                ).length;
                 const progress = Number(p.workCompleted ?? 0);
 
                 return (
@@ -202,13 +237,18 @@ const Projects = () => {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-lg font-semibold text-gray-900">{p.title}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {p.title}
+                          </h3>
                           <StatusPill status={p.status} />
                         </div>
+
                         <div className="text-sm text-gray-600 mb-1">
                           <span className="inline-flex items-center">
                             <Calendar className="w-4 h-4 mr-1" />
-                            {new Date(p.createdAt).toLocaleDateString()}
+                            {p.createdAt
+                              ? new Date(p.createdAt).toLocaleDateString()
+                              : '—'}
                           </span>
                           <span className="mx-2">•</span>
                           <span className="inline-flex items-center">
@@ -221,38 +261,50 @@ const Projects = () => {
                           <User className="w-4 h-4 mr-1" />
                           {assigned?.name ? (
                             <>
-                              Assigned to <span className="ml-1 font-medium">{assigned.name}</span>
+                              Assigned to{' '}
+                              <span className="ml-1 font-medium">
+                                {assigned.name}
+                              </span>
                             </>
                           ) : (
                             <span className="italic">No freelancer assigned</span>
                           )}
                         </div>
 
-                        {/* Progress + milestones */}
+                        {/* Progress */}
                         <div className="mt-2">
                           <div className="w-40 bg-gray-200 rounded-full h-2">
                             <div
                               className="bg-indigo-600 h-2 rounded-full"
-                              style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                              style={{
+                                width: `${Math.min(100, Math.max(0, progress))}%`,
+                              }}
                             />
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
-                            Progress: {Math.min(100, Math.max(0, progress))}% • Milestones: {completedMs}/{milestones.length}
+                            Progress: {Math.min(100, Math.max(0, progress))}% •
+                            Milestones: {completedMs}/{milestones.length}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-2 ml-4">
+                        {/* OPEN → view proposals */}
                         {p.status === 'open' && (
                           <Button
                             variant="outline"
-                            onClick={() => navigate(`/client/proposals?project=${projectId}`)}
+                            onClick={() =>
+                              navigate(
+                                `/dashboard/client/proposals?project=${projectId}`
+                              )
+                            }
                           >
                             <Briefcase className="w-4 h-4 mr-1" />
                             View Proposals
                           </Button>
                         )}
 
+                        {/* IN PROGRESS → actions */}
                         {p.status === 'in-progress' && (
                           <>
                             <Button
@@ -272,10 +324,16 @@ const Projects = () => {
                           </>
                         )}
 
-                        {(p.status === 'completed' || p.status === 'cancelled') && (
+                        {/* DONE / CANCELLED → view */}
+                        {(p.status === 'completed' ||
+                          p.status === 'cancelled') && (
                           <Button
                             variant="outline"
-                            onClick={() => navigate(`/jobs/${projectId}`)}
+                            onClick={() =>
+                              navigate(
+                                `/dashboard/client/projects/${projectId}`
+                              )
+                            }
                           >
                             View
                           </Button>

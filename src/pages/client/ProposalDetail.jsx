@@ -5,14 +5,19 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Button from '../../components/common/Button';
 import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
 
+// 🔗 unified API base
+const API_BASE =
+  import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
+  'https://freelanceflow-backend-01k4.onrender.com/api';
+
 const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    ...options
+    ...options,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
@@ -20,7 +25,7 @@ const api = async (endpoint, options = {}) => {
 };
 
 export default function ProposalDetail() {
-  const params = useParams();            // expects { id: '...' }
+  const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -28,15 +33,13 @@ export default function ProposalDetail() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
 
-  // Resolve id: route param -> ?id= -> navigation state
+  // resolve id from route / query / state
   const proposalId = useMemo(() => {
     const paramId = params?.id || '';
     const queryId = new URLSearchParams(location.search).get('id') || '';
     const stateId = location.state?.proposalId || '';
-    const resolved = paramId || queryId || stateId || '';
-    console.log('[ProposalDetail] path:', location.pathname, 'paramId:', paramId, 'queryId:', queryId, 'stateId:', stateId, '=> resolvedId:', resolved);
-    return resolved;
-  }, [params?.id, location.search, location.state, location.pathname]);
+    return paramId || queryId || stateId || '';
+  }, [params?.id, location.search, location.state]);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +47,6 @@ export default function ProposalDetail() {
       setLoading(true);
       try {
         if (!proposalId) {
-          console.warn('[ProposalDetail] No proposalId resolved from URL/state.');
           setMsg('Invalid proposal URL (no id).');
           setProposal(null);
           return;
@@ -64,7 +66,9 @@ export default function ProposalDetail() {
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [proposalId]);
 
   const updateStatus = async (newStatus) => {
@@ -72,7 +76,7 @@ export default function ProposalDetail() {
       if (!proposalId) throw new Error('Missing proposal id.');
       await api(`/proposals/${proposalId}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus }),
       });
       const res = await api(`/proposals/${proposalId}`);
       setProposal(res?.data?.proposal || null);
@@ -94,7 +98,10 @@ export default function ProposalDetail() {
     return (
       <DashboardLayout>
         <div className="p-6">
-          <Button variant="ghost" onClick={() => navigate('/client/proposals')}>
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/dashboard/client/proposals')}
+          >
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to proposals
           </Button>
           <div className="mt-4 text-red-600">{msg || 'Proposal not found.'}</div>
@@ -115,18 +122,29 @@ export default function ProposalDetail() {
         <div className="bg-white border rounded-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold">{proposal.project?.title || 'Project'}</h1>
+              <h1 className="text-2xl font-bold">
+                {proposal.project?.title || 'Project'}
+              </h1>
               <p className="text-sm text-gray-600">
-                Submitted: {proposal.submittedAt ? new Date(proposal.submittedAt).toLocaleString() : '—'}
+                Submitted:{' '}
+                {proposal.submittedAt
+                  ? new Date(proposal.submittedAt).toLocaleString()
+                  : '—'}
               </p>
             </div>
             <div className="space-x-2">
               {proposal.status === 'pending' && (
                 <>
-                  <Button onClick={() => updateStatus('accepted')} className="bg-green-600 hover:bg-green-700">
+                  <Button
+                    onClick={() => updateStatus('accepted')}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
                     <CheckCircle className="w-4 h-4 mr-1" /> Accept
                   </Button>
-                  <Button onClick={() => updateStatus('rejected')} variant="destructive">
+                  <Button
+                    onClick={() => updateStatus('rejected')}
+                    variant="destructive"
+                  >
                     <XCircle className="w-4 h-4 mr-1" /> Reject
                   </Button>
                 </>
@@ -137,12 +155,16 @@ export default function ProposalDetail() {
           <div className="space-y-4">
             <div>
               <div className="text-sm text-gray-500">Freelancer</div>
-              <div className="text-gray-900 font-medium">{proposal.freelancer?.name || 'Freelancer'}</div>
+              <div className="text-gray-900 font-medium">
+                {proposal.freelancer?.name || 'Freelancer'}
+              </div>
             </div>
 
             <div>
               <div className="text-sm text-gray-500">Bid Amount</div>
-              <div className="text-gray-900 font-medium">${proposal.bidAmount}</div>
+              <div className="text-gray-900 font-medium">
+                ${proposal.bidAmount}
+              </div>
             </div>
 
             <div>
@@ -152,17 +174,23 @@ export default function ProposalDetail() {
 
             <div>
               <div className="text-sm text-gray-500">Cover Letter</div>
-              <div className="text-gray-900 whitespace-pre-wrap">{proposal.coverLetter}</div>
+              <div className="text-gray-900 whitespace-pre-wrap">
+                {proposal.coverLetter}
+              </div>
             </div>
 
             {proposal.milestones?.length > 0 && (
               <div>
-                <div className="text-sm font-semibold text-gray-900 mb-1">Milestones</div>
+                <div className="text-sm font-semibold text-gray-900 mb-1">
+                  Milestones
+                </div>
                 <ul className="list-disc pl-5 text-sm text-gray-800 space-y-1">
                   {proposal.milestones.map((m, i) => (
                     <li key={i}>
                       {m.description} — ${m.amount}{' '}
-                      {m.dueDate && <> • due {new Date(m.dueDate).toLocaleDateString()}</>}
+                      {m.dueDate && (
+                        <> • due {new Date(m.dueDate).toLocaleDateString()}</>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -171,11 +199,15 @@ export default function ProposalDetail() {
 
             {proposal.attachments?.length > 0 && (
               <div>
-                <div className="text-sm font-semibold text-gray-900 mb-1">Attachments</div>
+                <div className="text-sm font-semibold text-gray-900 mb-1">
+                  Attachments
+                </div>
                 <ul className="list-disc pl-5 text-sm text-blue-700">
                   {proposal.attachments.map((a, i) => (
                     <li key={i}>
-                      <a href={a.url} target="_blank" rel="noreferrer">{a.filename || a.url}</a>
+                      <a href={a.url} target="_blank" rel="noreferrer">
+                        {a.filename || a.url}
+                      </a>
                     </li>
                   ))}
                 </ul>

@@ -1,22 +1,12 @@
+// src/pages/client/FreelancerPublicProfile.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import Button from '../../components/common/Button';
 import { User, MapPin, Star, DollarSign } from 'lucide-react';
 
-const api = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('token');
-  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    ...options
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
-  return data;
-};
+// 👇 shared API
+import apiService from '../../services/api';
 
 const FreelancerPublicProfile = () => {
   const { id } = useParams();
@@ -28,10 +18,11 @@ const FreelancerPublicProfile = () => {
     setLoading(true);
     setMsg('');
     try {
-      const res = await api(`/users/${id}`);
-      setFreelancer(res?.data?.user || null);
+      const res = await apiService.request(`/users/${id}`);
+      setFreelancer(res?.data?.user || res?.user || null);
     } catch (e) {
       setMsg(e.message || 'Failed to load profile');
+      setFreelancer(null);
     } finally {
       setLoading(false);
     }
@@ -68,13 +59,21 @@ const FreelancerPublicProfile = () => {
   return (
     <DashboardLayout>
       <div className="p-6 max-w-4xl mx-auto">
-        {msg && <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded">{msg}</div>}
+        {msg && (
+          <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded">
+            {msg}
+          </div>
+        )}
 
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="flex items-start gap-4">
             <div className="h-16 w-16 bg-indigo-100 rounded-full flex items-center justify-center">
               {freelancer.avatar ? (
-                <img src={freelancer.avatar} alt={freelancer.name} className="h-16 w-16 rounded-full object-cover" />
+                <img
+                  src={freelancer.avatar}
+                  alt={freelancer.name}
+                  className="h-16 w-16 rounded-full object-cover"
+                />
               ) : (
                 <User className="h-8 w-8 text-indigo-600" />
               )}
@@ -116,7 +115,10 @@ const FreelancerPublicProfile = () => {
               <h3 className="text-sm font-semibold text-gray-700 mb-2">Skills</h3>
               <div className="flex flex-wrap gap-2">
                 {skills.map((s) => (
-                  <span key={s} className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">
+                  <span
+                    key={s}
+                    className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full"
+                  >
                     {s}
                   </span>
                 ))}

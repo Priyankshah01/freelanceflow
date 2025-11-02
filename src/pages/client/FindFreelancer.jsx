@@ -1,3 +1,4 @@
+// src/pages/client/FindFreelancers.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import Button from '../../components/common/Button';
@@ -16,19 +17,8 @@ import {
   X,
 } from 'lucide-react';
 
-const api = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('token');
-  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    ...options
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
-  return data;
-};
+// 👇 shared API
+import apiService from '../../services/api';
 
 const availabilityOptions = [
   { value: '', label: 'Any availability' },
@@ -69,6 +59,8 @@ const AvailabilityPill = ({ value }) => {
 const FindFreelancers = () => {
   const navigate = useNavigate();
   const { user, isClient } = useAuth();
+  const isClientRole = typeof isClient === 'boolean' ? isClient : user?.role === 'client';
+
   const [params, setParams] = useSearchParams();
 
   // query params
@@ -93,7 +85,8 @@ const FindFreelancers = () => {
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(params.toString());
-    if (value) next.set(key, value); else next.delete(key);
+    if (value) next.set(key, value);
+    else next.delete(key);
     if (key !== 'page') next.delete('page');
     setParams(next);
   };
@@ -115,24 +108,24 @@ const FindFreelancers = () => {
       qs.set('page', String(page));
       qs.set('limit', String(pageSize));
 
-      const res = await api(`/users?${qs.toString()}`);
-      setFreelancers(res?.data?.users || []);
-      setTotal(res?.pagination?.total || 0);
+      const res = await apiService.request(`/users?${qs.toString()}`);
+      setFreelancers(res?.data?.users || res?.users || []);
+      setTotal(res?.pagination?.total || res?.data?.total || 0);
 
       // 2) only this client's open projects (empty if none or not a client)
-      if (isClient && user?._id) {
+      if (isClientRole && (user?._id || user?.id)) {
         // Try API filtering first
         const proQ = new URLSearchParams();
         proQ.set('mine', 'client');
         proQ.set('status', 'open');
         proQ.set('limit', '200');
-        const proRes = await api(`/projects?${proQ.toString()}`);
-        const all = proRes?.data?.projects || [];
+        const proRes = await apiService.request(`/projects?${proQ.toString()}`);
+        const all = proRes?.data?.projects || proRes?.projects || [];
 
         // Safety filter on FE (ensures only this client's)
         const mineOpen = all.filter((p) => {
           const cid = String(p.client?._id || p.client || '');
-          return cid === String(user._id) && p.status === 'open';
+          return cid === String(user?._id || user?.id) && p.status === 'open';
         });
 
         setOpenProjects(mineOpen);
@@ -149,7 +142,7 @@ const FindFreelancers = () => {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, skills, minRate, maxRate, location, availability, sort, page, isClient, user?._id]);
+  }, [q, skills, minRate, maxRate, location, availability, sort, page, isClientRole, user?._id, user?.id]);
 
   // Invite flow (requires backend route)
   const [inviteState, setInviteState] = useState({ projectId: '', sending: false, note: '' });
@@ -160,7 +153,7 @@ const FindFreelancers = () => {
     setMsg('');
     try {
       // POST /api/projects/:id/invite   body: { freelancerId, note? }
-      await api(`/projects/${inviteState.projectId}/invite`, {
+      await apiService.request(`/projects/${inviteState.projectId}/invite`, {
         method: 'POST',
         body: JSON.stringify({
           freelancerId: inviteModal.freelancer._id || inviteModal.freelancer.id,
@@ -299,9 +292,13 @@ const FindFreelancers = () => {
           </div>
 
           <div className="flex items-center justify-between mt-3">
-            <div className="text-xs text-gray-500">Showing page {page} of {totalPages}</div>
+            <div className="text-xs text-gray-500">
+              Showing page {page} of {totalPages}
+            </div>
             <div className="space-x-2">
-              <Button variant="ghost" onClick={clearAll}>Clear</Button>
+              <Button variant="ghost" onClick={clearAll}>
+                Clear
+              </Button>
               <Button onClick={() => load()}>Apply</Button>
             </div>
           </div>
@@ -316,8 +313,20 @@ const FindFreelancers = () => {
           {loading ? (
             <div className="p-10 flex items-center justify-center text-gray-500">
               <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                ></path>
               </svg>
               Loading...
             </div>
@@ -340,11 +349,18 @@ const FindFreelancers = () => {
                 const avail = f.profile?.availability || '';
 
                 return (
-                  <li key={id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <li
+                    key={id}
+                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
                     <div className="flex items-start gap-3">
                       <div className="h-12 w-12 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
                         {f.avatar ? (
-                          <img src={f.avatar} alt={f.name} className="h-12 w-12 rounded-full object-cover" />
+                          <img
+                            src={f.avatar}
+                            alt={f.name}
+                            className="h-12 w-12 rounded-full object-cover"
+                          />
                         ) : (
                           <User className="h-6 w-6 text-indigo-600" />
                         )}
@@ -353,7 +369,9 @@ const FindFreelancers = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <div className="truncate">
-                            <div className="font-semibold text-gray-900 truncate">{f.name || 'Unnamed'}</div>
+                            <div className="font-semibold text-gray-900 truncate">
+                              {f.name || 'Unnamed'}
+                            </div>
                             <div className="text-sm text-gray-600 truncate">{title}</div>
                           </div>
                           <AvailabilityPill value={avail} />
@@ -403,7 +421,7 @@ const FindFreelancers = () => {
                           </Button>
                           <Button
                             onClick={() => {
-                              if (!isClient) {
+                              if (!isClientRole) {
                                 setMsg('Only clients can invite freelancers.');
                                 return;
                               }
@@ -417,7 +435,7 @@ const FindFreelancers = () => {
                               setInviteModal({ open: true, freelancer: f });
                             }}
                             title={
-                              !isClient
+                              !isClientRole
                                 ? 'Only clients can invite'
                                 : openProjects?.length === 0
                                   ? 'Post a job first'
@@ -450,8 +468,11 @@ const FindFreelancers = () => {
               <button
                 key={p}
                 onClick={() => setFilter('page', String(p))}
-                className={`px-3 py-1.5 rounded border text-sm ${p === page ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200'
-                  }`}
+                className={`px-3 py-1.5 rounded border text-sm ${
+                  p === page
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-700 border-gray-200'
+                }`}
               >
                 {p}
               </button>
@@ -472,8 +493,13 @@ const FindFreelancers = () => {
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Invite {inviteModal.freelancer?.name || 'Freelancer'}</h3>
-              <button className="text-gray-400 hover:text-gray-600" onClick={() => setInviteModal({ open: false, freelancer: null })}>
+              <h3 className="text-lg font-semibold">
+                Invite {inviteModal.freelancer?.name || 'Freelancer'}
+              </h3>
+              <button
+                className="text-gray-400 hover:text-gray-600"
+                onClick={() => setInviteModal({ open: false, freelancer: null })}
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -488,7 +514,9 @@ const FindFreelancers = () => {
                 <select
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm mb-3"
                   value={inviteState.projectId}
-                  onChange={(e) => setInviteState((s) => ({ ...s, projectId: e.target.value }))}
+                  onChange={(e) =>
+                    setInviteState((s) => ({ ...s, projectId: e.target.value }))
+                  }
                 >
                   <option value="">Choose project…</option>
                   {openProjects.map((p) => (
@@ -504,19 +532,42 @@ const FindFreelancers = () => {
                   rows={4}
                   placeholder="Say hello and share a brief about the project…"
                   value={inviteState.note}
-                  onChange={(e) => setInviteState((s) => ({ ...s, note: e.target.value }))}
+                  onChange={(e) =>
+                    setInviteState((s) => ({ ...s, note: e.target.value }))
+                  }
                 />
 
                 <div className="mt-4 flex items-center justify-end gap-2">
-                  <Button variant="ghost" onClick={() => setInviteModal({ open: false, freelancer: null })}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setInviteModal({ open: false, freelancer: null })}
+                  >
                     Cancel
                   </Button>
-                  <Button disabled={!inviteState.projectId || inviteState.sending} onClick={sendInvite}>
+                  <Button
+                    disabled={!inviteState.projectId || inviteState.sending}
+                    onClick={sendInvite}
+                  >
                     {inviteState.sending ? (
                       <>
-                        <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        <svg
+                          className="animate-spin h-4 w-4 mr-2"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            fill="none"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                          ></path>
                         </svg>
                         Sending…
                       </>

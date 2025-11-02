@@ -1,22 +1,21 @@
+// src/pages/client/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { Briefcase, Users, DollarSign, FileText, TrendingUp, Calendar, Building, Globe } from 'lucide-react';
-import { Link } from "react-router-dom";
+import {
+  Briefcase,
+  Users,
+  DollarSign,
+  FileText,
+  TrendingUp,
+  Calendar,
+  Building,
+  Globe,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-const api = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('token');
-  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    ...options
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
-  return data;
-};
+// 👇 shared API (decides Vite env → backend → localhost)
+import apiService from '../../services/api';
 
 const ClientDashboard = () => {
   const { user } = useAuth();
@@ -29,10 +28,10 @@ const ClientDashboard = () => {
       totalSpent: 0,
       jobPosts: 0,
       pendingProposals: 0,
-      completedProjects: 0
+      completedProjects: 0,
     },
     recentActivity: [],
-    activeProjects: []
+    activeProjects: [],
   });
 
   const load = async () => {
@@ -40,29 +39,29 @@ const ClientDashboard = () => {
       // ensure user; self-heal if missing
       let u = user;
       if (!u) {
-        const me = await api('/auth/me');
+        const me = await apiService.request('/auth/me');
         u = me?.data?.user || me?.user || null;
         if (!u) throw new Error('User not found. Please re-login.');
       }
 
       // Replace the sections below with real endpoints when ready:
-      // const myProjects = await api('/projects?ownedByMe=true'); // all
-      // const active = await api('/projects?ownedByMe=true&status=in-progress');
-      // const completed = await api('/projects?ownedByMe=true&status=completed');
-      // const proposalsPending = await api('/proposals?status=pending'); // role-aware: client gets proposals to their projects
-      // const freelancersWorkedWith = await api('/users/worked-with?scope=my-projects');
+      // const myProjects = await apiService.request('/projects?ownedByMe=true'); // all
+      // const active = await apiService.request('/projects?ownedByMe=true&status=in-progress');
+      // const completed = await apiService.request('/projects?ownedByMe=true&status=completed');
+      // const proposalsPending = await apiService.request('/proposals?status=pending'); // role-aware: client gets proposals to their projects
+      // const freelancersWorkedWith = await apiService.request('/users/worked-with?scope=my-projects');
 
       const stats = {
-        activeProjects: 0,          // active?.data?.projects?.length || 0,
-        totalFreelancers: 0,        // freelancersWorkedWith?.data?.count || 0,
-        totalSpent: 0,              // compute from payments when you add them
-        jobPosts: 0,                // myProjects?.data?.projects?.length || 0,
-        pendingProposals: 0,        // proposalsPending?.data?.proposals?.length || 0,
-        completedProjects: 0        // completed?.data?.projects?.length || 0
+        activeProjects: 0, // active?.data?.projects?.length || 0,
+        totalFreelancers: 0, // freelancersWorkedWith?.data?.count || 0,
+        totalSpent: 0, // compute from payments when you add them
+        jobPosts: 0, // myProjects?.data?.projects?.length || 0,
+        pendingProposals: 0, // proposalsPending?.data?.proposals?.length || 0,
+        completedProjects: 0, // completed?.data?.projects?.length || 0
       };
 
-      const recentActivity = [];    // fill from activity/logs when available
-      const activeProjects = [];    // active?.data?.projects || [];
+      const recentActivity = []; // fill from activity/logs when available
+      const activeProjects = []; // active?.data?.projects || [];
 
       setDashboardData({ stats, recentActivity, activeProjects });
     } catch (e) {
@@ -77,11 +76,19 @@ const ClientDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  const formatCurrency = (amount = 0) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+      Number(amount) || 0
+    );
 
-  const formatDate = (dateString) =>
-    new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   const getActivityIcon = (type) => {
     switch (type) {
@@ -117,29 +124,29 @@ const ClientDashboard = () => {
       value: dashboardData.stats.activeProjects,
       icon: <Briefcase className="w-6 h-6" />,
       color: 'text-blue-600 bg-blue-100',
-      change: ''
+      change: '',
     },
     {
       label: 'Total Freelancers',
       value: dashboardData.stats.totalFreelancers,
       icon: <Users className="w-6 h-6" />,
       color: 'text-green-600 bg-green-100',
-      change: ''
+      change: '',
     },
     {
       label: 'Total Spent',
       value: formatCurrency(dashboardData.stats.totalSpent),
       icon: <DollarSign className="w-6 h-6" />,
       color: 'text-orange-600 bg-orange-100',
-      change: ''
+      change: '',
     },
     {
       label: 'Job Posts',
       value: dashboardData.stats.jobPosts,
       icon: <FileText className="w-6 h-6" />,
       color: 'text-purple-600 bg-purple-100',
-      change: ''
-    }
+      change: '',
+    },
   ];
 
   if (loading) {
@@ -159,7 +166,9 @@ const ClientDashboard = () => {
     <DashboardLayout>
       <div className="p-6">
         {message && (
-          <div className="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-700">{message}</div>
+          <div className="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-700">
+            {message}
+          </div>
         )}
 
         <div className="mb-8">
@@ -199,7 +208,10 @@ const ClientDashboard = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {statsCards.map((stat, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md">
+            <div
+              key={index}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md"
+            >
               <div className="flex items-center justify-between mb-4">
                 <div className={`p-3 rounded-lg ${stat.color}`}>{stat.icon}</div>
                 <TrendingUp className="w-4 h-4 text-green-500" />
@@ -259,6 +271,7 @@ const ClientDashboard = () => {
                 )}
 
                 <div className="pt-4 border-t border-gray-200">
+                  {/* this was already clickable — keeping it */}
                   <Link to="/dashboard/client/profile">
                     <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors">
                       Edit Profile
@@ -278,15 +291,25 @@ const ClientDashboard = () => {
               {dashboardData.activeProjects.length > 0 ? (
                 <div className="space-y-4">
                   {dashboardData.activeProjects.map((project) => (
-                    <div key={project._id || project.id} className="border border-gray-100 rounded-lg p-4 hover:shadow-md">
+                    <div
+                      key={project._id || project.id}
+                      className="border border-gray-100 rounded-lg p-4 hover:shadow-md"
+                    >
                       <div className="flex justify-between items-start mb-2">
                         <h3 className="font-semibold text-gray-900">{project.title}</h3>
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(project.status)}`}>
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${getStatusColor(
+                            project.status
+                          )}`}
+                        >
                           {project.status?.charAt(0).toUpperCase() + project.status?.slice(1)}
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mb-3">
-                        Freelancer: {project.assignedFreelancer?.name || project.freelancer?.name || '—'}
+                        Freelancer:{' '}
+                        {project.assignedFreelancer?.name ||
+                          project.freelancer?.name ||
+                          '—'}
                       </p>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
@@ -300,9 +323,11 @@ const ClientDashboard = () => {
                             <span className="text-sm text-green-600 font-medium">
                               {project.budget.type === 'fixed'
                                 ? formatCurrency(project.budget.amount)
-                                : `${formatCurrency(project.budget.hourlyRate?.min)}-${formatCurrency(
-                                  project.budget.hourlyRate?.max || 0
-                                )}/hr`}
+                                : `${formatCurrency(
+                                    project.budget.hourlyRate?.min
+                                  )}-${formatCurrency(
+                                    project.budget.hourlyRate?.max || 0
+                                  )}/hr`}
                             </span>
                           )}
                         </div>
@@ -314,7 +339,9 @@ const ClientDashboard = () => {
                                 style={{ width: `${project.progress}%` }}
                               />
                             </div>
-                            <span className="text-sm text-gray-600">{project.progress}%</span>
+                            <span className="text-sm text-gray-600">
+                              {project.progress}%
+                            </span>
                           </div>
                         )}
                       </div>
@@ -325,13 +352,14 @@ const ClientDashboard = () => {
                 <div className="text-center py-8">
                   <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="font-medium text-gray-900 mb-2">No active projects</h3>
-                  <p className="text-gray-600 mb-4">Start by posting your first job to find talented freelancers!</p>
-                    <Link to="/dashboard/client/post-job">
-
-                  <button className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors">
-                    Post a Job
-                  </button>
-                    </Link>
+                  <p className="text-gray-600 mb-4">
+                    Start by posting your first job to find talented freelancers!
+                  </p>
+                  <Link to="/dashboard/client/post-job">
+                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors">
+                      Post a Job
+                    </button>
+                  </Link>
                 </div>
               )}
             </div>

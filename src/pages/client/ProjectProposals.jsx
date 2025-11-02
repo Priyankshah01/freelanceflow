@@ -6,14 +6,19 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { CheckCircle, XCircle, Eye, Loader2, Filter, Users, Inbox } from 'lucide-react';
 
+// 🔗 shared API base
+const API_BASE =
+  import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
+  'https://freelanceflow-backend-01k4.onrender.com/api';
+
 const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    ...options
+    ...options,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
@@ -25,7 +30,7 @@ const StatusPill = ({ status }) => {
     pending: 'bg-yellow-100 text-yellow-800',
     accepted: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
-    withdrawn: 'bg-gray-100 text-gray-800'
+    withdrawn: 'bg-gray-100 text-gray-800',
   };
   return (
     <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] || 'bg-gray-100 text-gray-800'}`}>
@@ -54,12 +59,12 @@ const ProjectProposals = () => {
   const load = async () => {
     setLoading(true);
     try {
-      // Sidebar stats + project list
+      // sidebar stats + project list
       const statRes = await api('/proposals/stats/my-projects');
       setStats(statRes?.data?.stats || []);
       setProjects(statRes?.data?.projects || []);
 
-      // Proposals list
+      // proposals list
       const qs = new URLSearchParams();
       if (projectId) qs.set('project', projectId);
       if (status) qs.set('status', status);
@@ -91,13 +96,10 @@ const ProjectProposals = () => {
 
   const updateStatus = async (id, newStatus) => {
     try {
-      if (!id) {
-        console.warn('updateStatus called with empty id');
-        return;
-      }
+      if (!id) return;
       await api(`/proposals/${id}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus }),
       });
       await load();
     } catch (e) {
@@ -125,7 +127,7 @@ const ProjectProposals = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar filters & stats */}
+          {/* Sidebar */}
           <aside className="lg:col-span-1 space-y-4">
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex items-center mb-3">
@@ -174,8 +176,7 @@ const ProjectProposals = () => {
                     <div key={s.projectId || s.id} className="text-sm">
                       <div className="font-medium text-gray-900">{s.title}</div>
                       <div className="text-xs text-gray-600">
-                        total {s.total} • pending {s.pending || 0} • accepted {s.accepted || 0} • rejected{' '}
-                        {s.rejected || 0}
+                        total {s.total} • pending {s.pending || 0} • accepted {s.accepted || 0} • rejected {s.rejected || 0}
                       </div>
                     </div>
                   ))}
@@ -184,7 +185,7 @@ const ProjectProposals = () => {
             </div>
           </aside>
 
-          {/* Main list */}
+          {/* Main */}
           <section className="lg:col-span-3">
             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
@@ -205,11 +206,8 @@ const ProjectProposals = () => {
               ) : (
                 <ul className="divide-y divide-gray-200">
                   {proposals.map((p, idx) => {
-                    const pid = p?.id || p?._id; // <-- API returns id via transform; fall back to _id just in case
-                    const key =
-                      pid ||
-                      `${p?.project?._id || p?.project}-${p?.freelancer?._id || p?.freelancer}-${idx}`;
-
+                    const pid = p?.id || p?._id;
+                    const key = pid || `${p?.project?._id || p?.project}-${p?.freelancer?._id || p?.freelancer}-${idx}`;
                     return (
                       <li key={key} className="p-4">
                         <div className="flex items-center justify-between">
@@ -222,17 +220,11 @@ const ProjectProposals = () => {
                             </div>
                             <div className="text-sm text-gray-600">
                               Bid:{' '}
-                              <span className="font-medium text-gray-900">
-                                ${Number(p.bidAmount || 0)}
-                              </span>{' '}
-                              • Submitted:{' '}
+                              <span className="font-medium text-gray-900">${Number(p.bidAmount || 0)}</span> • Submitted:{' '}
                               {p.submittedAt ? new Date(p.submittedAt).toLocaleString() : '—'}
                             </div>
                             <div className="text-sm text-gray-600">
-                              By:{' '}
-                              <span className="font-medium">
-                                {p.freelancer?.name || 'Freelancer'}
-                              </span>
+                              By: <span className="font-medium">{p.freelancer?.name || 'Freelancer'}</span>
                             </div>
                           </div>
 
@@ -240,11 +232,9 @@ const ProjectProposals = () => {
                             <Button
                               variant="outline"
                               onClick={() => {
-                                if (!pid) {
-                                  console.warn('No id on proposal:', p);
-                                  return;
-                                }
-                                navigate(`/client/proposals/${pid}`, { state: { proposalId: pid } });
+                                if (!pid) return;
+                                // 👇 if your route is /dashboard/client/proposals/:id, change it here
+                                navigate(`/dashboard/client/proposals/${pid}`, { state: { proposalId: pid } });
                               }}
                             >
                               <Eye className="w-4 h-4 mr-1" /> View

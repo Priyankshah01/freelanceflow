@@ -7,15 +7,17 @@ import {
   Mail,
   MapPin,
   Phone,
-  Globe,
-  Users,
-  Save,
   Upload,
   User,
-  Building2 as IndustryIcon
+  Users,
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import FormField from '../../components/common/FormField';
+
+// 🔗 use SAME backend as rest
+const API_BASE =
+  import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
+  'https://freelanceflow-backend-01k4.onrender.com/api';
 
 const ClientProfile = () => {
   const { user, updateUser } = useAuth();
@@ -30,11 +32,10 @@ const ClientProfile = () => {
       companySize: '',
       location: '',
       phone: '',
-      website: ''
-    }
+      website: '',
+    },
   });
 
-  // simple UI validation state
   const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
@@ -47,8 +48,8 @@ const ClientProfile = () => {
           companySize: user.profile?.companySize || '',
           location: user.profile?.location || '',
           phone: user.profile?.phone || '',
-          website: user.profile?.website || ''
-        }
+          website: user.profile?.website || '',
+        },
       });
     }
   }, [user]);
@@ -58,17 +59,16 @@ const ClientProfile = () => {
     setTimeout(() => setMessage({ type: '', content: '' }), 5000);
   };
 
-  // ---------- helpers ----------
   const apiRequest = async (endpoint, options = {}) => {
     const token = localStorage.getItem('token');
-    const url = `http://localhost:5000/api${endpoint}`;
+    const url = `${API_BASE}${endpoint}`;
 
     const res = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      ...options
+      ...options,
     });
 
     const data = await res.json().catch(() => ({}));
@@ -83,10 +83,9 @@ const ClientProfile = () => {
     return data;
   };
 
-  // remove "", null, undefined recursively
   const cleanObject = (obj) => {
     if (Array.isArray(obj)) {
-      return obj.map(cleanObject).filter(v => v !== '' && v !== null && v !== undefined);
+      return obj.map(cleanObject).filter((v) => v !== '' && v !== null && v !== undefined);
     }
     if (obj && typeof obj === 'object') {
       const out = {};
@@ -99,18 +98,15 @@ const ClientProfile = () => {
     return obj;
   };
 
-  // basic client validations (non-blocking but helpful)
   const validateFields = () => {
     const errs = {};
     const url = profileData.profile.website?.trim();
     if (url) {
-      // must start with http(s) and have a dot
       const urlOk = /^https?:\/\/.+\..+/.test(url);
       if (!urlOk) errs['profile.website'] = 'Enter a valid URL (https://example.com)';
     }
     const phoneVal = profileData.profile.phone?.trim();
     if (phoneVal) {
-      // very loose phone check: digits, spaces, +, -, parentheses
       const phoneOk = /^[0-9+\- ()]{7,}$/.test(phoneVal);
       if (!phoneOk) errs['profile.phone'] = 'Enter a valid phone number';
     }
@@ -132,13 +128,11 @@ const ClientProfile = () => {
     setSaving(true);
 
     try {
-      // client-side checks
       const errs = validateFields();
       if (Object.keys(errs).length) {
         throw new Error('Please fix the highlighted fields.');
       }
 
-      // build payload, drop empties
       const payload = {
         name: profileData.name,
         profile: {
@@ -147,14 +141,15 @@ const ClientProfile = () => {
           companySize: profileData.profile.companySize,
           location: profileData.profile.location,
           phone: profileData.profile.phone,
-          website: profileData.profile.website
-        }
+          website: profileData.profile.website,
+        },
       };
+
       const cleanPayload = cleanObject(payload);
 
       const response = await apiRequest('/users/profile', {
         method: 'PUT',
-        body: JSON.stringify(cleanPayload)
+        body: JSON.stringify(cleanPayload),
       });
 
       const updatedUser = response?.data?.user || response?.user || response;
@@ -163,16 +158,15 @@ const ClientProfile = () => {
       showMessage('success', 'Profile updated successfully!');
       setFieldErrors({});
     } catch (error) {
-      // show server validation array if present
       const serverErrors = error?.errors || error?.response?.data?.errors;
       if (Array.isArray(serverErrors) && serverErrors.length) {
         const errs = {};
-        serverErrors.forEach(e => {
+        serverErrors.forEach((e) => {
           const key = e.param || e.path || 'form';
           errs[key] = e.msg || e.message || 'Invalid value';
         });
         setFieldErrors(errs);
-        const msg = serverErrors.map(e => `${e.param || e.path}: ${e.msg || e.message}`).join(' • ');
+        const msg = serverErrors.map((e) => `${e.param || e.path}: ${e.msg || e.message}`).join(' • ');
         showMessage('error', `Update failed: ${msg}`);
       } else {
         showMessage('error', error.message || 'Update failed');
@@ -185,7 +179,6 @@ const ClientProfile = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    // clear per-field error when editing
     if (fieldErrors[name]) {
       const next = { ...fieldErrors };
       delete next[name];
@@ -194,17 +187,17 @@ const ClientProfile = () => {
 
     if (name.startsWith('profile.')) {
       const profileField = name.replace('profile.', '');
-      setProfileData(prev => ({
+      setProfileData((prev) => ({
         ...prev,
         profile: {
           ...prev.profile,
-          [profileField]: value
-        }
+          [profileField]: value,
+        },
       }));
     } else {
-      setProfileData(prev => ({
+      setProfileData((prev) => ({
         ...prev,
-        [name]: value
+        [name]: value,
       }));
     }
   };
@@ -221,7 +214,7 @@ const ClientProfile = () => {
     'Consulting',
     'Non-profit',
     'Entertainment',
-    'Other'
+    'Other',
   ];
 
   const companySizeOptions = ['1-10', '11-50', '51-200', '201-500', '500+'];
@@ -229,13 +222,11 @@ const ClientProfile = () => {
   return (
     <DashboardLayout>
       <div className="p-6 max-w-4xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Company Profile</h1>
           <p className="text-gray-600">Manage your company information and hiring preferences</p>
         </div>
 
-        {/* Message */}
         {message.content && (
           <div
             className={`mb-6 p-4 rounded-md ${
@@ -252,7 +243,7 @@ const ClientProfile = () => {
           <div className="p-6">
             <form onSubmit={handleUpdateProfile} noValidate>
               <div className="space-y-6">
-                {/* Profile Photo Section */}
+                {/* avatar / logo */}
                 <div className="flex items-center space-x-6 pb-6 border-b border-gray-200">
                   <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
                     {user?.avatar ? (
@@ -271,7 +262,7 @@ const ClientProfile = () => {
                   </div>
                 </div>
 
-                {/* Basic Information */}
+                {/* form */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     label="Contact Name"
@@ -283,13 +274,7 @@ const ClientProfile = () => {
                     error={fieldErrors['name']}
                   />
 
-                  <FormField
-                    label="Email"
-                    type="email"
-                    value={user?.email || ''}
-                    disabled
-                    className="bg-gray-50"
-                  />
+                  <FormField label="Email" type="email" value={user?.email || ''} disabled className="bg-gray-50" />
 
                   <FormField
                     label="Company Name"
@@ -370,7 +355,6 @@ const ClientProfile = () => {
                   />
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex justify-end pt-6 border-t border-gray-200">
                   <Button type="submit" disabled={saving} className="flex items-center space-x-2">
                     {saving ? (
@@ -380,7 +364,16 @@ const ClientProfile = () => {
                       </>
                     ) : (
                       <>
-                        <Save className="w-4 h-4" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
                         <span>Save Changes</span>
                       </>
                     )}
@@ -393,7 +386,6 @@ const ClientProfile = () => {
 
         {/* Profile Completeness & Stats */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Profile Completeness */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Profile Completeness</h3>
             <div className="flex items-center justify-between mb-2">
@@ -411,7 +403,6 @@ const ClientProfile = () => {
             <p className="text-xs text-gray-500 mt-2">Complete your profile to attract better freelancers!</p>
           </div>
 
-          {/* Account Info */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Account Information</h3>
             <div className="space-y-3">
@@ -443,17 +434,15 @@ const ClientProfile = () => {
         {(profileData.profile.company || profileData.profile.industry) && (
           <div className="mt-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg text-white p-6">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
                 <Building className="w-8 h-8" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold">
-                  {profileData.profile.company || 'Your Company'}
-                </h3>
+                <h3 className="text-xl font-semibold">{profileData.profile.company || 'Your Company'}</h3>
                 <div className="flex items-center space-x-4 mt-2 text-indigo-100">
                   {profileData.profile.industry && (
                     <span className="flex items-center">
-                      <IndustryIcon className="w-4 h-4 mr-1" />
+                      <Building className="w-4 h-4 mr-1" />
                       {profileData.profile.industry}
                     </span>
                   )}

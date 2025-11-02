@@ -1,23 +1,27 @@
 // src/pages/client/PostJob.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { 
-  FileText, 
-  DollarSign, 
-  Clock, 
-  Users, 
-  MapPin, 
-  Plus, 
-  X, 
+import {
+  FileText,
+  DollarSign,
+  Clock,
+  Users,
+  Plus,
+  X,
   Save,
   Eye,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import FormField from '../../components/common/FormField';
+
+// 🔗 use SAME backend as other client pages
+const API_BASE =
+  import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
+  'https://freelanceflow-backend-01k4.onrender.com/api';
 
 const PostJob = () => {
   const { user } = useAuth();
@@ -36,13 +40,13 @@ const PostJob = () => {
       amount: '',
       hourlyRate: {
         min: '',
-        max: ''
-      }
+        max: '',
+      },
     },
     timeline: {
       duration: '',
       startDate: '',
-      endDate: ''
+      endDate: '',
     },
     experienceLevel: '',
     projectSize: '',
@@ -52,7 +56,7 @@ const PostJob = () => {
     requirements: [],
     deliverables: [],
     tags: [],
-    applicationDeadline: ''
+    applicationDeadline: '',
   });
 
   const [skillInput, setSkillInput] = useState('');
@@ -72,26 +76,26 @@ const PostJob = () => {
     { value: 'blockchain', label: 'Blockchain' },
     { value: 'ai-ml', label: 'AI/Machine Learning' },
     { value: 'consulting', label: 'Consulting' },
-    { value: 'other', label: 'Other' }
+    { value: 'other', label: 'Other' },
   ];
 
   const experienceLevels = [
     { value: 'entry', label: 'Entry Level', description: 'Looking for someone relatively new to this field' },
     { value: 'intermediate', label: 'Intermediate', description: 'Looking for substantial experience in this field' },
-    { value: 'expert', label: 'Expert', description: 'Looking for comprehensive and deep expertise in this field' }
+    { value: 'expert', label: 'Expert', description: 'Looking for comprehensive and deep expertise in this field' },
   ];
 
   const projectSizes = [
     { value: 'small', label: 'Small', description: 'Quick and straightforward' },
     { value: 'medium', label: 'Medium', description: 'Well-defined project' },
-    { value: 'large', label: 'Large', description: 'Larger or more complex project' }
+    { value: 'large', label: 'Large', description: 'Larger or more complex project' },
   ];
 
   const timelineDurations = [
     { value: 'less-than-1-month', label: 'Less than 1 month' },
     { value: '1-3-months', label: '1 to 3 months' },
     { value: '3-6-months', label: '3 to 6 months' },
-    { value: 'more-than-6-months', label: 'More than 6 months' }
+    { value: 'more-than-6-months', label: 'More than 6 months' },
   ];
 
   const showMessage = (type, content) => {
@@ -101,15 +105,15 @@ const PostJob = () => {
 
   const apiRequest = async (endpoint, options = {}) => {
     const token = localStorage.getItem('token');
-    const response = await fetch(`http://localhost:5000/api${endpoint}`, {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      ...options
+      ...options,
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(data.message || 'Request failed');
     }
@@ -118,52 +122,67 @@ const PostJob = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      if (parent === 'budget' && child === 'hourlyRate') {
-        const [, , field] = name.split('.');
-        setFormData(prev => ({
-          ...prev,
-          budget: {
-            ...prev.budget,
-            hourlyRate: {
-              ...prev.budget.hourlyRate,
-              [field]: value
-            }
-          }
-        }));
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          [parent]: {
-            ...prev[parent],
-            [child]: type === 'checkbox' ? checked : value
-          }
-        }));
-      }
-    } else {
-      setFormData(prev => ({
+
+    // nested fields
+    if (name.startsWith('budget.hourlyRate.')) {
+      const field = name.replace('budget.hourlyRate.', '');
+      setFormData((prev) => ({
         ...prev,
-        [name]: type === 'checkbox' ? checked : value
+        budget: {
+          ...prev.budget,
+          hourlyRate: {
+            ...prev.budget.hourlyRate,
+            [field]: value,
+          },
+        },
       }));
+      return;
     }
+
+    if (name.startsWith('timeline.')) {
+      const field = name.replace('timeline.', '');
+      setFormData((prev) => ({
+        ...prev,
+        timeline: {
+          ...prev.timeline,
+          [field]: value,
+        },
+      }));
+      return;
+    }
+
+    if (name.startsWith('budget.')) {
+      const field = name.replace('budget.', '');
+      setFormData((prev) => ({
+        ...prev,
+        budget: {
+          ...prev.budget,
+          [field]: type === 'checkbox' ? checked : value,
+        },
+      }));
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
   };
 
   const addItem = (type, input, setInput) => {
     if (!input.trim()) return;
-    
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      [type]: [...prev[type], input.trim()]
+      [type]: [...prev[type], input.trim()],
     }));
     setInput('');
   };
 
   const removeItem = (type, index) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [type]: prev[type].filter((_, i) => i !== index)
+      [type]: prev[type].filter((_, i) => i !== index),
     }));
   };
 
@@ -175,12 +194,15 @@ const PostJob = () => {
         return formData.skills.length > 0 && formData.experienceLevel && formData.projectSize;
       case 3:
         if (formData.budget.type === 'fixed') {
-          return formData.budget.amount >= 5;
+          return Number(formData.budget.amount) >= 5;
         } else {
-          return formData.budget.hourlyRate.min >= 5 && formData.budget.hourlyRate.max > formData.budget.hourlyRate.min;
+          return (
+            Number(formData.budget.hourlyRate.min) >= 5 &&
+            Number(formData.budget.hourlyRate.max) > Number(formData.budget.hourlyRate.min)
+          );
         }
       case 4:
-        return formData.timeline.duration;
+        return !!formData.timeline.duration;
       default:
         return true;
     }
@@ -188,14 +210,14 @@ const PostJob = () => {
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 5));
+      setCurrentStep((prev) => Math.min(prev + 1, 5));
     } else {
       showMessage('error', 'Please fill in all required fields before continuing');
     }
   };
 
   const handlePrevious = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
   const handleSubmit = async () => {
@@ -206,22 +228,24 @@ const PostJob = () => {
 
     setSaving(true);
     try {
-      console.log('📝 Submitting project:', formData);
-      
-      const response = await apiRequest('/projects', {
+      // clean up payload for backend
+      const payload = {
+        ...formData,
+        client: user?._id || user?.id || undefined,
+      };
+
+      await apiRequest('/projects', {
         method: 'POST',
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload),
       });
 
       showMessage('success', 'Job posted successfully!');
-      
-      // Redirect to project details or jobs list after a delay
-      setTimeout(() => {
-        navigate('/client/manage-jobs');
-      }, 2000);
 
+      // 👇 keep client routes consistent
+      setTimeout(() => {
+        navigate('/dashboard/client/manage-jobs');
+      }, 1500);
     } catch (error) {
-      console.error('❌ Job posting failed:', error);
       showMessage('error', `Failed to post job: ${error.message}`);
     } finally {
       setSaving(false);
@@ -233,7 +257,7 @@ const PostJob = () => {
     { number: 2, title: 'Skills & Experience', icon: Users },
     { number: 3, title: 'Budget', icon: DollarSign },
     { number: 4, title: 'Timeline', icon: Clock },
-    { number: 5, title: 'Review & Post', icon: Eye }
+    { number: 5, title: 'Review & Post', icon: Eye },
   ];
 
   return (
@@ -252,33 +276,35 @@ const PostJob = () => {
               const Icon = step.icon;
               return (
                 <div key={step.number} className="flex items-center">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
-                    currentStep >= step.number
-                      ? 'bg-indigo-600 border-indigo-600 text-white'
-                      : 'bg-white border-gray-300 text-gray-400'
-                  }`}>
-                    {currentStep > step.number ? (
-                      <CheckCircle className="w-6 h-6" />
-                    ) : (
-                      <Icon className="w-5 h-5" />
-                    )}
+                  <div
+                    className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
+                      currentStep >= step.number
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : 'bg-white border-gray-300 text-gray-400'
+                    }`}
+                  >
+                    {currentStep > step.number ? <CheckCircle className="w-6 h-6" /> : <Icon className="w-5 h-5" />}
                   </div>
                   <div className="ml-3 hidden md:block">
-                    <div className={`text-sm font-medium ${
-                      currentStep >= step.number ? 'text-indigo-600' : 'text-gray-400'
-                    }`}>
+                    <div
+                      className={`text-sm font-medium ${
+                        currentStep >= step.number ? 'text-indigo-600' : 'text-gray-400'
+                      }`}
+                    >
                       Step {step.number}
                     </div>
-                    <div className={`text-sm ${
-                      currentStep >= step.number ? 'text-gray-900' : 'text-gray-400'
-                    }`}>
+                    <div
+                      className={`text-sm ${currentStep >= step.number ? 'text-gray-900' : 'text-gray-400'}`}
+                    >
                       {step.title}
                     </div>
                   </div>
                   {step.number < steps.length && (
-                    <div className={`hidden md:block w-20 h-0.5 ml-6 ${
-                      currentStep > step.number ? 'bg-indigo-600' : 'bg-gray-300'
-                    }`} />
+                    <div
+                      className={`hidden md:block w-20 h-0.5 ml-6 ${
+                        currentStep > step.number ? 'bg-indigo-600' : 'bg-gray-300'
+                      }`}
+                    />
                   )}
                 </div>
               );
@@ -288,27 +314,25 @@ const PostJob = () => {
 
         {/* Message */}
         {message.content && (
-          <div className={`mb-6 p-4 rounded-md flex items-center ${
-            message.type === 'success' 
-              ? 'bg-green-50 border border-green-200 text-green-700'
-              : 'bg-red-50 border border-red-200 text-red-700'
-          }`}>
-            {message.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 mr-2" />
-            ) : (
-              <AlertCircle className="w-5 h-5 mr-2" />
-            )}
+          <div
+            className={`mb-6 p-4 rounded-md flex items-center ${
+              message.type === 'success'
+                ? 'bg-green-50 border border-green-200 text-green-700'
+                : 'bg-red-50 border border-red-200 text-red-700'
+            }`}
+          >
+            {message.type === 'success' ? <CheckCircle className="w-5 h-5 mr-2" /> : <AlertCircle className="w-5 h-5 mr-2" />}
             {message.content}
           </div>
         )}
 
         {/* Form */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          {/* Step 1: Project Details */}
+          {/* Step 1 */}
           {currentStep === 1 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Project Details</h2>
-              
+
               <FormField
                 label="Project Title"
                 name="title"
@@ -318,9 +342,7 @@ const PostJob = () => {
                 required
                 className="mb-4"
               />
-              <p className="text-xs text-gray-500 -mt-3 mb-4">
-                {formData.title.length}/100 characters (minimum 10)
-              </p>
+              <p className="text-xs text-gray-500 -mt-3 mb-4">{formData.title.length}/100 characters (minimum 10)</p>
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -334,8 +356,10 @@ const PostJob = () => {
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="">Select a category</option>
-                  {categories.map(cat => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  {categories.map((cat) => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -360,11 +384,11 @@ const PostJob = () => {
             </div>
           )}
 
-          {/* Step 2: Skills & Experience */}
+          {/* Step 2 */}
           {currentStep === 2 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Skills & Experience Required</h2>
-              
+
               {/* Skills */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -377,13 +401,14 @@ const PostJob = () => {
                     onChange={(e) => setSkillInput(e.target.value)}
                     placeholder="Add a skill (e.g., React, Node.js, UI Design)"
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addItem('skills', skillInput, setSkillInput))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addItem('skills', skillInput, setSkillInput);
+                      }
+                    }}
                   />
-                  <Button 
-                    type="button" 
-                    onClick={() => addItem('skills', skillInput, setSkillInput)}
-                    disabled={!skillInput.trim()}
-                  >
+                  <Button type="button" onClick={() => addItem('skills', skillInput, setSkillInput)} disabled={!skillInput.trim()}>
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
@@ -401,9 +426,7 @@ const PostJob = () => {
                     </span>
                   ))}
                 </div>
-                {formData.skills.length === 0 && (
-                  <p className="text-sm text-gray-500 mt-2">Add at least one skill</p>
-                )}
+                {formData.skills.length === 0 && <p className="text-sm text-gray-500 mt-2">Add at least one skill</p>}
               </div>
 
               {/* Experience Level */}
@@ -458,11 +481,11 @@ const PostJob = () => {
             </div>
           )}
 
-          {/* Step 3: Budget */}
+          {/* Step 3 */}
           {currentStep === 3 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Budget</h2>
-              
+
               {/* Budget Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -543,11 +566,11 @@ const PostJob = () => {
             </div>
           )}
 
-          {/* Step 4: Timeline */}
+          {/* Step 4 */}
           {currentStep === 4 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Project Timeline</h2>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   How long will this project take? <span className="text-red-500">*</span>
@@ -560,8 +583,10 @@ const PostJob = () => {
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="">Select timeline</option>
-                  {timelineDurations.map(duration => (
-                    <option key={duration.value} value={duration.value}>{duration.label}</option>
+                  {timelineDurations.map((duration) => (
+                    <option key={duration.value} value={duration.value}>
+                      {duration.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -592,9 +617,7 @@ const PostJob = () => {
                     onChange={handleInputChange}
                     className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                   />
-                  <label className="ml-2 text-sm text-gray-700">
-                    This is an urgent project
-                  </label>
+                  <label className="ml-2 text-sm text-gray-700">This is an urgent project</label>
                 </div>
 
                 <div className="flex items-center">
@@ -605,9 +628,7 @@ const PostJob = () => {
                     onChange={handleInputChange}
                     className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                   />
-                  <label className="ml-2 text-sm text-gray-700">
-                    Remote work is acceptable
-                  </label>
+                  <label className="ml-2 text-sm text-gray-700">Remote work is acceptable</label>
                 </div>
               </div>
 
@@ -623,34 +644,38 @@ const PostJob = () => {
             </div>
           )}
 
-          {/* Step 5: Review */}
+          {/* Step 5 */}
           {currentStep === 5 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Review Your Job Post</h2>
-              
+
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">{formData.title}</h3>
-                
+
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <span className="text-sm font-medium text-gray-500">Category:</span>
-                    <p className="text-sm text-gray-900 capitalize">{formData.category.replace('-', ' ')}</p>
+                    <p className="text-sm text-gray-900 capitalize">
+                      {formData.category ? formData.category.replace(/-/g, ' ') : '—'}
+                    </p>
                   </div>
                   <div>
                     <span className="text-sm font-medium text-gray-500">Budget:</span>
                     <p className="text-sm text-gray-900">
-                      {formData.budget.type === 'fixed' 
-                        ? `${formData.budget.amount}` 
-                        : `${formData.budget.hourlyRate.min}-${formData.budget.hourlyRate.max}/hr`}
+                      {formData.budget.type === 'fixed'
+                        ? `$${formData.budget.amount || 0}`
+                        : `$${formData.budget.hourlyRate.min || 0} - $${formData.budget.hourlyRate.max || 0}/hr`}
                     </p>
                   </div>
                   <div>
                     <span className="text-sm font-medium text-gray-500">Experience:</span>
-                    <p className="text-sm text-gray-900 capitalize">{formData.experienceLevel}</p>
+                    <p className="text-sm text-gray-900 capitalize">{formData.experienceLevel || '—'}</p>
                   </div>
                   <div>
                     <span className="text-sm font-medium text-gray-500">Timeline:</span>
-                    <p className="text-sm text-gray-900">{timelineDurations.find(d => d.value === formData.timeline.duration)?.label}</p>
+                    <p className="text-sm text-gray-900">
+                      {timelineDurations.find((d) => d.value === formData.timeline.duration)?.label || '—'}
+                    </p>
                   </div>
                 </div>
 
@@ -662,6 +687,7 @@ const PostJob = () => {
                         {skill}
                       </span>
                     ))}
+                    {formData.skills.length === 0 && <span className="text-sm text-gray-500">No skills added</span>}
                   </div>
                 </div>
 
@@ -675,9 +701,7 @@ const PostJob = () => {
                 <div className="flex">
                   <AlertCircle className="h-5 w-5 text-yellow-400" />
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-yellow-800">
-                      Before you post
-                    </h3>
+                    <h3 className="text-sm font-medium text-yellow-800">Before you post</h3>
                     <div className="mt-2 text-sm text-yellow-700">
                       <p>Make sure your job post is clear and detailed. Good job posts receive more quality proposals.</p>
                     </div>
@@ -689,22 +713,13 @@ const PostJob = () => {
 
           {/* Navigation Buttons */}
           <div className="flex justify-between pt-6 border-t border-gray-200 mt-8">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handlePrevious}
-              disabled={currentStep === 1}
-            >
+            <Button type="button" variant="secondary" onClick={handlePrevious} disabled={currentStep === 1}>
               Previous
             </Button>
 
             <div className="flex space-x-3">
               {currentStep < 5 ? (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={!validateStep(currentStep)}
-                >
+                <Button type="button" onClick={handleNext} disabled={!validateStep(currentStep)}>
                   Next
                 </Button>
               ) : (
