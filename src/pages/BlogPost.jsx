@@ -1,7 +1,7 @@
 // src/pages/public/BlogPost.jsx
 import React from "react";
 import { useParams, Link } from "react-router-dom";
-import LandingLayout from "../../layouts/LandingLayout";
+import LandingLayout from "../layouts/LandingLayout";
 
 const POSTS = {
   "how-to-hire-remote-ui-ux-designer": {

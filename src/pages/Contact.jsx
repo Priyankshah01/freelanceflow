@@ -1,6 +1,6 @@
 // src/pages/public/Contact.jsx
 import React, { useState } from "react";
-import LandingLayout from "../../layouts/LandingLayout";
+import LandingLayout from "../layouts/LandingLayout";
 
 const ContactPage = () => {
   const [status, setStatus] = useState("");
