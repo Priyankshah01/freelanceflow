@@ -19,7 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import Button from '../../components/common/Button';
-import { get } from '../../services/apiService'; // 👈 use shared API
+import { get } from '../../services/api'; // 👈 use shared API
 
 const Jobs = () => {
   const { user } = useAuth();

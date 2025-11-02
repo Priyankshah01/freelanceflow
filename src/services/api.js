@@ -1,4 +1,4 @@
-// src/services/apiService.js
+// src/services/api.js
 
 // 1) First priority: Vite envs (best for Vercel)
 const ENV_BASE =
