@@ -48,7 +48,17 @@ export default function Settings() {
         getAdminSettings(),
         getSystemHealth(),
       ]);
-      if (settings) setForm((f) => ({ ...f, ...settings }));
+      if (settings) {
+        setForm((f) => ({
+          ...f,
+          ...settings,
+          // fallback so we never send undefined to backend
+          sessionTimeoutMin:
+            typeof settings.sessionTimeoutMin === "number"
+              ? settings.sessionTimeoutMin
+              : f.sessionTimeoutMin,
+        }));
+      }
       if (sys) setHealth(sys);
     } catch (e) {
       setErr(e.message || "Failed to load settings");
@@ -61,7 +71,11 @@ export default function Settings() {
     load();
   }, []);
 
-  const onChange = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+  const onChange = (key, val) =>
+    setForm((f) => ({
+      ...f,
+      [key]: val,
+    }));
 
   const onSave = async (e) => {
     e.preventDefault();
@@ -69,7 +83,17 @@ export default function Settings() {
       setErr("");
       setOk("");
       setSaving(true);
-      await updateAdminSettings(form);
+      // normalize number field
+      const payload = {
+        ...form,
+        sessionTimeoutMin: Math.max(
+          5,
+          Number.isFinite(Number(form.sessionTimeoutMin))
+            ? Number(form.sessionTimeoutMin)
+            : 60
+        ),
+      };
+      await updateAdminSettings(payload);
       setOk("Settings updated successfully.");
     } catch (e) {
       setErr(e.message || "Failed to save settings");
@@ -138,7 +162,10 @@ export default function Settings() {
           ))}
         </div>
       ) : (
-        <form onSubmit={onSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <form
+          onSubmit={onSave}
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+        >
           {/* General */}
           <section className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm backdrop-blur-md">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -216,7 +243,12 @@ export default function Settings() {
                   className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   value={form.sessionTimeoutMin}
                   onChange={(e) =>
-                    onChange("sessionTimeoutMin", Math.max(5, parseInt(e.target.value || "0", 10)))
+                    onChange(
+                      "sessionTimeoutMin",
+                      e.target.value === ""
+                        ? ""
+                        : Math.max(5, parseInt(e.target.value || "0", 10))
+                    )
                   }
                 />
               </div>
@@ -242,11 +274,11 @@ export default function Settings() {
                     <code className="text-xs">{health.node || "—"}</code>
                   </Row>
                   <Row label="Uptime">
-                    {health.uptimeSec ? `${Math.floor(health.uptimeSec)} s` : "—"}
+                    {health.uptimeSec
+                      ? `${Math.floor(health.uptimeSec)} s`
+                      : "—"}
                   </Row>
-                  <Row label="MongoDB">
-                    {health.mongo}
-                  </Row>
+                  <Row label="MongoDB">{health.mongo}</Row>
                 </div>
               </div>
             </div>

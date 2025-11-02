@@ -115,16 +115,22 @@ function ProjectsPane() {
     []
   );
 
-  const load = async () => {
+  const load = async (overridePage) => {
     try {
       setErr("");
       setLoading(true);
-      const params = { page, limit: 12 };
+      const params = { page: overridePage || page, limit: 12 };
       if (status) params.status = status;
-      if (from) params.from = from; // backend can adopt these later
+      if (from) params.from = from;
       if (to) params.to = to;
       const data = await listProjects(params);
-      setRes(data);
+      setRes(
+        data || {
+          items: [],
+          page: overridePage || page,
+          pages: 1,
+        }
+      );
     } catch (e) {
       setErr(e.message || "Failed to load projects");
     } finally {
@@ -133,8 +139,8 @@ function ProjectsPane() {
   };
 
   useEffect(() => {
-    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    load();
   }, [page]);
 
   const update = async (id, s) => {
@@ -159,6 +165,7 @@ function ProjectsPane() {
       createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : "",
       updatedAt: p.updatedAt ? new Date(p.updatedAt).toISOString() : "",
     }));
+    if (!rows.length) return;
     downloadCSV("projects.csv", rows);
   };
 
@@ -214,19 +221,19 @@ function ProjectsPane() {
           <button
             onClick={() => {
               setPage(1);
-              load();
+              load(1);
             }}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             Apply
           </button>
 
-            <button
-              onClick={exportCSV}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
-            >
-              <Icon.Download /> Export CSV
-            </button>
+          <button
+            onClick={exportCSV}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+          >
+            <Icon.Download /> Export CSV
+          </button>
 
           {err && (
             <span className="ml-auto text-sm text-red-600 dark:text-red-400">
@@ -251,7 +258,10 @@ function ProjectsPane() {
               <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded" />
               <div className="mt-4 flex gap-2">
                 {Array.from({ length: 4 }).map((__, j) => (
-                  <div key={j} className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                  <div
+                    key={j}
+                    className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded"
+                  />
                 ))}
               </div>
             </div>
@@ -268,7 +278,11 @@ function ProjectsPane() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {p.title || "Untitled Project"}
                 </h3>
-                <span className={`px-2 py-1 text-xs rounded-full ${statusBg(p.status || "unknown")}`}>
+                <span
+                  className={`px-2 py-1 text-xs rounded-full ${statusBg(
+                    p.status || "unknown"
+                  )}`}
+                >
                   {p.status || "unknown"}
                 </span>
               </div>
@@ -280,8 +294,16 @@ function ProjectsPane() {
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
                 Client: {p.client?.name || p.clientId?.name || "—"} (
                 {p.client?.email || p.clientId?.email || "—"})
-                {p.assignee?.name || p.freelancer?.name || p.freelancerId?.name ? (
-                  <> • Dev: {p.assignee?.name || p.freelancer?.name || p.freelancerId?.name}</>
+                {p.assignee?.name ||
+                p.freelancer?.name ||
+                p.freelancerId?.name ? (
+                  <>
+                    {" "}
+                    • Dev:{" "}
+                    {p.assignee?.name ||
+                      p.freelancer?.name ||
+                      p.freelancerId?.name}
+                  </>
                 ) : null}
               </p>
 
@@ -315,7 +337,7 @@ function ProjectsPane() {
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl p-4 flex items-center justify-between">
               <span>{err}</span>
               <button
-                onClick={load}
+                onClick={() => load(1)}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md border border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/30"
               >
                 <Icon.Refresh /> Retry
@@ -326,7 +348,7 @@ function ProjectsPane() {
       </div>
 
       {/* Pagination */}
-      {!loading && res?.pages > 1 && (
+      {!loading && (res?.pages ?? 1) > 1 && (
         <div className="flex items-center justify-center gap-3 mt-6">
           <button
             className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-50"
@@ -336,11 +358,11 @@ function ProjectsPane() {
             Prev
           </button>
           <span className="text-sm text-gray-600 dark:text-gray-300">
-            Page {res.page} / {res.pages}
+            Page {res?.page || page} / {res?.pages || 1}
           </span>
           <button
             className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-50"
-            disabled={page >= res.pages}
+            disabled={page >= (res?.pages || 1)}
             onClick={() => setPage((p) => p + 1)}
           >
             Next
@@ -358,7 +380,14 @@ function FinancePane() {
 
   useEffect(() => {
     getFinanceSummary()
-      .then(setData)
+      .then((d) => {
+        setData(
+          d || {
+            invoices: [],
+            payouts: [],
+          }
+        );
+      })
       .catch((e) => setErr(e.message || "Failed to load finance summary"));
   }, []);
 
@@ -375,7 +404,9 @@ function FinancePane() {
       total: Number(i.total || 0),
       count: Number(i.count || 0),
     }));
-    downloadCSV("finance.csv", [...invoices, ...payouts]);
+    const rows = [...invoices, ...payouts];
+    if (!rows.length) return;
+    downloadCSV("finance.csv", rows);
   };
 
   if (err)
@@ -395,15 +426,24 @@ function FinancePane() {
           >
             <div className="h-5 w-40 bg-gray-200 dark:bg-gray-700 rounded mb-4" />
             {Array.from({ length: 4 }).map((__, j) => (
-              <div key={j} className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+              <div
+                key={j}
+                className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded mb-2"
+              />
             ))}
           </div>
         ))}
       </div>
     );
 
-  const maxInvoice = Math.max(...(data.invoices || []).map((i) => Number(i.total || 0)), 1);
-  const maxPayout = Math.max(...(data.payouts || []).map((i) => Number(i.total || 0)), 1);
+  const maxInvoice = Math.max(
+    ...(data.invoices || []).map((i) => Number(i.total || 0)),
+    1
+  );
+  const maxPayout = Math.max(
+    ...(data.payouts || []).map((i) => Number(i.total || 0)),
+    1
+  );
 
   const Cell = ({ title, items, max }) => (
     <div className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm backdrop-blur-md">
@@ -423,7 +463,7 @@ function FinancePane() {
           const total = Number(i.total || 0);
           const ratio = Math.max(0.08, Math.min(1, total / max)); // prevent too tiny bars
           return (
-            <li key={i._id} className="text-sm">
+            <li key={i._id || i.status || Math.random()} className="text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-gray-700 dark:text-gray-300">
                   {i._id ?? "—"}
@@ -444,6 +484,11 @@ function FinancePane() {
             </li>
           );
         })}
+        {!items.length && (
+          <li className="text-sm text-gray-500 dark:text-gray-400">
+            No data yet.
+          </li>
+        )}
       </ul>
     </div>
   );
@@ -459,23 +504,29 @@ function FinancePane() {
 /* ============================ Audits ============================ */
 function AuditsPane() {
   const [page, setPage] = useState(1);
-  const [q, setQ] = useState("");       // optional
+  const [q, setQ] = useState(""); // optional
   const [from, setFrom] = useState(""); // optional
-  const [to, setTo] = useState("");     // optional
+  const [to, setTo] = useState(""); // optional
   const [res, setRes] = useState(null);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = async (overridePage) => {
     try {
       setErr("");
       setLoading(true);
-      const params = { page, limit: 30 };
+      const params = { page: overridePage || page, limit: 30 };
       if (q) params.q = q;
       if (from) params.from = from;
       if (to) params.to = to;
       const data = await listAudits(params);
-      setRes(data);
+      setRes(
+        data || {
+          items: [],
+          page: overridePage || page,
+          pages: 1,
+        }
+      );
     } catch (e) {
       setErr(e.message || "Failed to load audit logs");
     } finally {
@@ -484,6 +535,7 @@ function AuditsPane() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     load();
   }, [page]);
 
@@ -495,6 +547,7 @@ function AuditsPane() {
       target: a.targetId ?? "",
       meta: JSON.stringify(a.meta ?? {}),
     }));
+    if (!rows.length) return;
     downloadCSV("audits.csv", rows);
   };
 
@@ -530,7 +583,10 @@ function AuditsPane() {
           />
 
           <button
-            onClick={() => { setPage(1); load(); }}
+            onClick={() => {
+              setPage(1);
+              load(1);
+            }}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             Apply
@@ -550,7 +606,10 @@ function AuditsPane() {
         <div className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm backdrop-blur-md animate-pulse">
           <div className="h-5 w-40 bg-gray-200 dark:bg-gray-700 rounded mb-4" />
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+            <div
+              key={i}
+              className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded mb-2"
+            />
           ))}
         </div>
       ) : (
@@ -567,8 +626,15 @@ function AuditsPane() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {res?.items?.map((a) => (
-                  <tr key={a._id} className="text-gray-800 dark:text-gray-100">
-                    <Td>{a.createdAt ? new Date(a.createdAt).toLocaleString() : "—"}</Td>
+                  <tr
+                    key={a._id || Math.random().toString(36).slice(2)}
+                    className="text-gray-800 dark:text-gray-100"
+                  >
+                    <Td>
+                      {a.createdAt
+                        ? new Date(a.createdAt).toLocaleString()
+                        : "—"}
+                    </Td>
                     <Td>{a.action ?? "—"}</Td>
                     <Td>{a.targetId ?? "—"}</Td>
                     <Td>
@@ -580,7 +646,10 @@ function AuditsPane() {
                 ))}
                 {(res?.items?.length ?? 0) === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td
+                      colSpan={4}
+                      className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                    >
                       No audit entries.
                     </td>
                   </tr>
@@ -589,7 +658,7 @@ function AuditsPane() {
             </table>
           </div>
 
-          {res?.pages > 1 && (
+          {(res?.pages ?? 1) > 1 && (
             <div className="flex items-center justify-center gap-3 mt-6">
               <button
                 className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-50"
@@ -599,11 +668,11 @@ function AuditsPane() {
                 Prev
               </button>
               <span className="text-sm text-gray-600 dark:text-gray-300">
-                Page {res.page} / {res.pages}
+                Page {res?.page || page} / {res?.pages || 1}
               </span>
               <button
                 className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-50"
-                disabled={page >= res.pages}
+                disabled={page >= (res?.pages || 1)}
                 onClick={() => setPage((p) => p + 1)}
               >
                 Next

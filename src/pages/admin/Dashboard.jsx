@@ -3,7 +3,6 @@ import React, { useEffect, useState, isValidElement } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { fetchOverview } from "../../services/adminApi";
 
-
 // Simple emoji icons (swap with your own if you like)
 const Icon = {
   Dashboard: () => <span>📊</span>,
@@ -30,7 +29,7 @@ export default function Dashboard() {
       .catch((e) => setErr(e.message || "Failed to load overview"));
   }, []);
 
-  // ✅ Use ROUTE PATHS you registered in App.jsx (not file paths)
+  // ✅ Must match your App.jsx routes
   const navigation = [
     { name: "Dashboard", to: "/admin", icon: Icon.Dashboard },
     { name: "Users", to: "/admin/users", icon: Icon.Users },
@@ -72,7 +71,7 @@ export default function Dashboard() {
             <nav className="mt-8 flex-1 px-4 space-y-2">
               {navigation.map((item) => {
                 const active = isActive(item.to);
-                const ItemIcon = item.icon; // component function
+                const ItemIcon = item.icon;
                 return (
                   <Link
                     key={item.name}
@@ -83,7 +82,6 @@ export default function Dashboard() {
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     }`}
                   >
-                    {/* render icon safely */}
                     {ItemIcon ? <ItemIcon /> : null}
                     <span className="ml-3">{item.name}</span>
                   </Link>
@@ -119,7 +117,6 @@ export default function Dashboard() {
 
             <div className="flex items-center space-x-4">
               <button className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                
                 Sign Out
               </button>
               <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full grid place-items-center text-white font-semibold">
@@ -129,20 +126,19 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Main content area */}
+        {/* Content area */}
         <main className="flex-1 overflow-y-auto p-6 bg-gray-50/50 dark:bg-gray-900/50">
           {!data ? (
             <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Metrics grid */}
+              {/* Metrics */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                   title="Total Users"
                   value={data.counts?.users ?? 0}
-                  change={null} // optional: compute % change later
                   trend="up"
                   icon={Icon.Users}
                   link="/admin/users"
@@ -152,7 +148,6 @@ export default function Dashboard() {
                 <StatCard
                   title="Active Projects"
                   value={data.counts?.projects ?? 0}
-                  change={null}
                   trend="up"
                   icon={Icon.Projects}
                   link="/admin/reports"
@@ -164,7 +159,6 @@ export default function Dashboard() {
                   value={`$${Number(
                     data.revenue?.find((x) => x._id === "paid")?.total || 0
                   ).toFixed(2)}`}
-                  change={null}
                   trend="up"
                   icon={Icon.Revenue}
                   color="purple"
@@ -174,15 +168,15 @@ export default function Dashboard() {
                   value={`$${Number(
                     data.payouts?.find((x) => x._id === "sent")?.total || 0
                   ).toFixed(2)}`}
-                  change={null}
                   trend="down"
                   icon={Icon.Payouts}
                   color="orange"
                 />
               </div>
 
-              {/* Activity + Quick stats */}
+              {/* Activity + Quick Stats */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Activity */}
                 <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
@@ -217,7 +211,6 @@ export default function Dashboard() {
                           {data.trend7d.reduce((sum, day) => sum + day.count, 0)}
                         </span>
                         <span className="text-green-600 dark:text-green-400">
-                          {/* You can compute delta vs previous period later */}
                           ↑
                         </span>
                       </div>
@@ -230,12 +223,12 @@ export default function Dashboard() {
                   )}
                 </div>
 
+                {/* Quick Stats */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6">
                     Quick Stats
                   </h2>
                   <div className="space-y-4">
-                    {/* Hook these up to real metrics when endpoints are ready */}
                     <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                       <span className="text-sm text-blue-700 dark:text-blue-300">
                         Pending Reviews
@@ -332,13 +325,13 @@ export default function Dashboard() {
   );
 }
 
-// ---------- Safe icon renderer inside StatCard ----------
+// ---------- StatCard ----------
 function StatCard({
   title,
   value,
   change,
   trend,
-  icon, // can be a component function OR a ready element
+  icon,
   link,
   linkText,
   color = "gray",
@@ -373,7 +366,6 @@ function StatCard({
 
   const colors = colorClasses[color] || colorClasses.gray;
 
-  // render icon safely whether it's a component or an element
   const renderIcon = () => {
     if (!icon) return null;
     if (typeof icon === "function") {
@@ -388,7 +380,9 @@ function StatCard({
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-all duration-200">
       <div className="flex items-center justify-between mb-4">
         <div className={`p-2 rounded-lg ${colors.bg}`}>
-          <div className={`w-6 h-6 rounded grid place-items-center text-white ${colors.icon}`}>
+          <div
+            className={`w-6 h-6 rounded grid place-items-center text-white ${colors.icon}`}
+          >
             {renderIcon()}
           </div>
         </div>

@@ -1,5 +1,5 @@
 // src/pages/admin/ManageUser.jsx
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   listUsers,
@@ -7,7 +7,7 @@ import {
   updateUserStatus,
 } from "../../services/adminApi";
 
-// Minimal emoji icons to stay consistent with Dashboard
+// Minimal emoji icons
 const Icon = {
   Users: () => <span>👥</span>,
   Search: () => <span>🔎</span>,
@@ -39,8 +39,8 @@ export default function ManageUser() {
   };
 
   useEffect(() => {
-    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    load();
   }, [page]);
 
   const onFilter = async (e) => {
@@ -69,7 +69,6 @@ export default function ManageUser() {
     }
   };
 
-  // small helper to keep chip colors consistent
   const statusChip = useMemo(
     () => ({
       active:
@@ -82,7 +81,7 @@ export default function ManageUser() {
 
   return (
     <div className="w-full mx-auto p-6 bg-gray-100 dark:bg-gray-900 min-h-screen">
-      {/* Page head — mirrors Dashboard spacing and typography */}
+      {/* Page head */}
       <div className="flex items-start sm:items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-indigo-600 text-white grid place-items-center shadow-sm">
@@ -109,7 +108,7 @@ export default function ManageUser() {
         </button>
       </div>
 
-      {/* Filter toolbar — same card/border style as dashboard sections */}
+      {/* Filter toolbar */}
       <form
         onSubmit={onFilter}
         className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm backdrop-blur-md mb-6"
@@ -164,7 +163,7 @@ export default function ManageUser() {
         </div>
       )}
 
-      {/* Table card — same glassy card as Dashboard charts */}
+      {/* Table */}
       <div className="overflow-hidden bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm backdrop-blur-md">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -180,72 +179,91 @@ export default function ManageUser() {
             </thead>
 
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {/* Loading skeleton rows */}
+              {/* Skeleton rows */}
               {loading &&
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={`sk-${i}`} className="animate-pulse">
-                    <Td><div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" /></Td>
-                    <Td><div className="h-4 w-48 rounded bg-gray-200 dark:bg-gray-700" /></Td>
-                    <Td><div className="h-8 w-28 rounded bg-gray-200 dark:bg-gray-700" /></Td>
-                    <Td><div className="h-6 w-20 rounded bg-gray-200 dark:bg-gray-700" /></Td>
-                    <Td><div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" /></Td>
-                    <Td><div className="h-8 w-32 rounded bg-gray-200 dark:bg-gray-700" /></Td>
+                    <Td>
+                      <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
+                    </Td>
+                    <Td>
+                      <div className="h-4 w-48 rounded bg-gray-200 dark:bg-gray-700" />
+                    </Td>
+                    <Td>
+                      <div className="h-8 w-28 rounded bg-gray-200 dark:bg-gray-700" />
+                    </Td>
+                    <Td>
+                      <div className="h-6 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+                    </Td>
+                    <Td>
+                      <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+                    </Td>
+                    <Td>
+                      <div className="h-8 w-32 rounded bg-gray-200 dark:bg-gray-700" />
+                    </Td>
                   </tr>
                 ))}
 
-              {!loading && res?.items?.map((u) => (
-                <tr key={u._id} className="text-gray-800 dark:text-gray-100">
-                  <Td className="font-medium">{u.name}</Td>
-                  <Td>{u.email}</Td>
+              {!loading &&
+                res?.items?.map((u) => (
+                  <tr key={u._id} className="text-gray-800 dark:text-gray-100">
+                    <Td className="font-medium">{u.name}</Td>
+                    <Td>{u.email}</Td>
 
-                  <Td>
-                    <select
-                      className="px-2 py-1.5 text-xs sm:text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-                      value={u.role}
-                      disabled={busyId === u._id}
-                      onChange={(e) => changeRole(u._id, e.target.value)}
-                    >
-                      <option value="admin">admin</option>
-                      <option value="client">client</option>
-                      <option value="freelancer">freelancer</option>
-                    </select>
-                  </Td>
-
-                  <Td>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                        u.status === "active" ? statusChip.active : statusChip.suspended
-                      }`}
-                    >
-                      {u.status}
-                    </span>
-                  </Td>
-
-                  <Td>{new Date(u.createdAt).toLocaleDateString()}</Td>
-
-                  <Td className="space-x-2">
-                    {u.status === "active" ? (
-                      <button
-                        className="px-3 py-1.5 text-xs rounded-md bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+                    <Td>
+                      <select
+                        className="px-2 py-1.5 text-xs sm:text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
+                        value={u.role}
                         disabled={busyId === u._id}
-                        onClick={() => changeStatus(u._id, "suspended")}
+                        onChange={(e) => changeRole(u._id, e.target.value)}
                       >
-                        Suspend
-                      </button>
-                    ) : (
-                      <button
-                        className="px-3 py-1.5 text-xs rounded-md bg-green-500/10 text-green-700 hover:bg-green-500/20 dark:text-green-300"
-                        disabled={busyId === u._id}
-                        onClick={() => changeStatus(u._id, "active")}
-                      >
-                        Activate
-                      </button>
-                    )}
-                  </Td>
-                </tr>
-              ))}
+                        <option value="admin">admin</option>
+                        <option value="client">client</option>
+                        <option value="freelancer">freelancer</option>
+                      </select>
+                    </Td>
 
-              {!loading && res?.items?.length === 0 && (
+                    <Td>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                          u.status === "active"
+                            ? statusChip.active
+                            : statusChip.suspended
+                        }`}
+                      >
+                        {u.status}
+                      </span>
+                    </Td>
+
+                    <Td>
+                      {u.createdAt
+                        ? new Date(u.createdAt).toLocaleDateString()
+                        : "—"}
+                    </Td>
+
+                    <Td className="space-x-2">
+                      {u.status === "active" ? (
+                        <button
+                          className="px-3 py-1.5 text-xs rounded-md bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+                          disabled={busyId === u._id}
+                          onClick={() => changeStatus(u._id, "suspended")}
+                        >
+                          Suspend
+                        </button>
+                      ) : (
+                        <button
+                          className="px-3 py-1.5 text-xs rounded-md bg-green-500/10 text-green-700 hover:bg-green-500/20 dark:text-green-300"
+                          disabled={busyId === u._id}
+                          onClick={() => changeStatus(u._id, "active")}
+                        >
+                          Activate
+                        </button>
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+
+              {!loading && (res?.items?.length ?? 0) === 0 && (
                 <tr>
                   <td
                     colSpan={6}
@@ -259,11 +277,12 @@ export default function ManageUser() {
           </table>
         </div>
 
-        {/* Footer: pagination — same control style as Dashboard */}
+        {/* Pagination */}
         {!loading && res?.pages > 1 && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 dark:border-gray-700">
             <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-              Showing page <b className="text-gray-700 dark:text-gray-200">{res.page}</b> of{" "}
+              Showing page{" "}
+              <b className="text-gray-700 dark:text-gray-200">{res.page}</b> of{" "}
               <b className="text-gray-700 dark:text-gray-200">{res.pages}</b>
             </span>
 
@@ -290,7 +309,7 @@ export default function ManageUser() {
   );
 }
 
-/* ---------- Tiny table cell components for consistent paddings ---------- */
+/* ---------- Tiny table cell components ---------- */
 function Th({ children }) {
   return (
     <th className="px-4 py-3 text-left font-semibold sticky top-0 backdrop-blur-md z-10">

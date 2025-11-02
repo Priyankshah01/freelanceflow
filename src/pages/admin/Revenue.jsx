@@ -15,6 +15,7 @@ const Icon = {
   Download: () => <span>⬇️</span>,
 };
 
+/* ---------------- CSV helper ---------------- */
 function downloadCSV(filename, rows) {
   if (!rows || !rows.length) return;
   const escape = (v) => {
@@ -110,16 +111,22 @@ function InvoicesPane() {
     []
   );
 
-  const load = async () => {
+  const load = async (overridePage) => {
     try {
       setErr("");
       setLoading(true);
-      const params = { page, limit: 12 };
+      const params = { page: overridePage || page, limit: 12 };
       if (status) params.status = status;
       if (from) params.from = from;
       if (to) params.to = to;
       const data = await listInvoices(params);
-      setRes(data);
+      setRes(
+        data || {
+          items: [],
+          page: overridePage || page,
+          pages: 1,
+        }
+      );
     } catch (e) {
       setErr(e.message || "Failed to load invoices");
     } finally {
@@ -128,8 +135,8 @@ function InvoicesPane() {
   };
 
   useEffect(() => {
-    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    load();
   }, [page]);
 
   const setStatusFn = async (id, s) => {
@@ -153,6 +160,7 @@ function InvoicesPane() {
       createdAt: i.createdAt ? new Date(i.createdAt).toISOString() : "",
       updatedAt: i.updatedAt ? new Date(i.updatedAt).toISOString() : "",
     }));
+    if (!rows.length) return;
     downloadCSV("invoices.csv", rows);
   };
 
@@ -189,7 +197,7 @@ function InvoicesPane() {
           <button
             onClick={() => {
               setPage(1);
-              load();
+              load(1);
             }}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
           >
@@ -226,57 +234,65 @@ function InvoicesPane() {
           ))}
 
         {!loading &&
-          res?.items?.map((inv) => (
-            <div
-              key={inv._id}
-              className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Invoice • {inv._id.slice(-6)}
-                </h3>
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  inv.status === "paid"
-                    ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                    : inv.status === "pending"
-                    ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                    : inv.status === "failed"
-                    ? "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
-                    : "bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"
-                }`}>
-                  {inv.status || "unknown"}
-                </span>
-              </div>
-
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Amount: <strong>${Number(inv.amount || 0).toFixed(2)}</strong>{" "}
-                {inv.currency || "USD"}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                User: {inv.user?.email || inv.userEmail || "—"} • Project: {inv.project?.title || inv.projectTitle || "—"}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {inv.createdAt ? new Date(inv.createdAt).toLocaleString() : ""}
-              </p>
-
-              <div className="flex flex-wrap gap-2 mt-4">
-                {["paid", "pending", "failed", "refunded"].map((s) => (
-                  <button
-                    key={s}
-                    disabled={busyId === inv._id}
-                    onClick={() => setStatusFn(inv._id, s)}
-                    className={`px-3 py-1.5 text-xs rounded-md border transition ${
-                      inv.status === s
-                        ? "border-indigo-500 text-indigo-600 dark:text-indigo-300"
-                        : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+          res?.items?.map((inv) => {
+            const shortId = inv?._id ? inv._id.slice(-6) : "—";
+            return (
+              <div
+                key={inv._id || Math.random().toString(36).slice(2)}
+                className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Invoice • {shortId}
+                  </h3>
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      inv.status === "paid"
+                        ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                        : inv.status === "pending"
+                        ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                        : inv.status === "failed"
+                        ? "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
+                        : "bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"
                     }`}
                   >
-                    {s}
-                  </button>
-                ))}
+                    {inv.status || "unknown"}
+                  </span>
+                </div>
+
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Amount: <strong>${Number(inv.amount || 0).toFixed(2)}</strong>{" "}
+                  {inv.currency || "USD"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  User: {inv.user?.email || inv.userEmail || "—"} • Project:{" "}
+                  {inv.project?.title || inv.projectTitle || "—"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {inv.createdAt
+                    ? new Date(inv.createdAt).toLocaleString()
+                    : ""}
+                </p>
+
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {["paid", "pending", "failed", "refunded"].map((s) => (
+                    <button
+                      key={s}
+                      disabled={busyId === inv._id}
+                      onClick={() => inv._id && setStatusFn(inv._id, s)}
+                      className={`px-3 py-1.5 text-xs rounded-md border transition ${
+                        inv.status === s
+                          ? "border-indigo-500 text-indigo-600 dark:text-indigo-300"
+                          : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
         {!loading && (res?.items?.length ?? 0) === 0 && !err && (
           <div className="col-span-full text-center text-gray-500 dark:text-gray-400">
@@ -289,7 +305,7 @@ function InvoicesPane() {
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl p-4 flex items-center justify-between">
               <span>{err}</span>
               <button
-                onClick={load}
+                onClick={() => load(1)}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md border border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/30"
               >
                 <Icon.Refresh /> Retry
@@ -299,7 +315,7 @@ function InvoicesPane() {
         )}
       </div>
 
-      {!loading && res?.pages > 1 && (
+      {!loading && (res?.pages ?? 1) > 1 && (
         <div className="flex items-center justify-center gap-3 mt-6">
           <button
             className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-50"
@@ -309,11 +325,11 @@ function InvoicesPane() {
             Prev
           </button>
           <span className="text-sm text-gray-600 dark:text-gray-300">
-            Page {res.page} / {res.pages}
+            Page {res?.page || page} / {res?.pages || 1}
           </span>
           <button
             className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-50"
-            disabled={page >= res.pages}
+            disabled={page >= (res?.pages || 1)}
             onClick={() => setPage((p) => p + 1)}
           >
             Next
@@ -340,16 +356,22 @@ function PayoutsPane() {
     []
   );
 
-  const load = async () => {
+  const load = async (overridePage) => {
     try {
       setErr("");
       setLoading(true);
-      const params = { page, limit: 12 };
+      const params = { page: overridePage || page, limit: 12 };
       if (status) params.status = status;
       if (from) params.from = from;
       if (to) params.to = to;
       const data = await listPayouts(params);
-      setRes(data);
+      setRes(
+        data || {
+          items: [],
+          page: overridePage || page,
+          pages: 1,
+        }
+      );
     } catch (e) {
       setErr(e.message || "Failed to load payouts");
     } finally {
@@ -358,8 +380,8 @@ function PayoutsPane() {
   };
 
   useEffect(() => {
-    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    load();
   }, [page]);
 
   const setStatusFn = async (id, s) => {
@@ -383,6 +405,7 @@ function PayoutsPane() {
       createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : "",
       updatedAt: p.updatedAt ? new Date(p.updatedAt).toISOString() : "",
     }));
+    if (!rows.length) return;
     downloadCSV("payouts.csv", rows);
   };
 
@@ -417,7 +440,10 @@ function PayoutsPane() {
           />
 
           <button
-            onClick={() => { setPage(1); load(); }}
+            onClick={() => {
+              setPage(1);
+              load(1);
+            }}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             Apply
@@ -453,57 +479,63 @@ function PayoutsPane() {
           ))}
 
         {!loading &&
-          res?.items?.map((po) => (
-            <div
-              key={po._id}
-              className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Payout • {po._id.slice(-6)}
-                </h3>
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  po.status === "sent"
-                    ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                    : po.status === "processing"
-                    ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                    : po.status === "failed"
-                    ? "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
-                    : "bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"
-                }`}>
-                  {po.status || "unknown"}
-                </span>
-              </div>
-
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Amount: <strong>${Number(po.amount || 0).toFixed(2)}</strong>{" "}
-                {po.currency || "USD"}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Freelancer: {po.freelancer?.email || po.freelancerEmail || "—"} • Method: {po.method || po.provider || "—"}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {po.createdAt ? new Date(po.createdAt).toLocaleString() : ""}
-              </p>
-
-              <div className="flex flex-wrap gap-2 mt-4">
-                {["requested", "processing", "sent", "failed"].map((s) => (
-                  <button
-                    key={s}
-                    disabled={busyId === po._id}
-                    onClick={() => setStatusFn(po._id, s)}
-                    className={`px-3 py-1.5 text-xs rounded-md border transition ${
-                      po.status === s
-                        ? "border-indigo-500 text-indigo-600 dark:text-indigo-300"
-                        : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+          res?.items?.map((po) => {
+            const shortId = po?._id ? po._id.slice(-6) : "—";
+            return (
+              <div
+                key={po._id || Math.random().toString(36).slice(2)}
+                className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Payout • {shortId}
+                  </h3>
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      po.status === "sent"
+                        ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                        : po.status === "processing"
+                        ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                        : po.status === "failed"
+                        ? "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
+                        : "bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"
                     }`}
                   >
-                    {s}
-                  </button>
-                ))}
+                    {po.status || "unknown"}
+                  </span>
+                </div>
+
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Amount: <strong>${Number(po.amount || 0).toFixed(2)}</strong>{" "}
+                  {po.currency || "USD"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Freelancer: {po.freelancer?.email || po.freelancerEmail || "—"} •
+                  Method: {po.method || po.provider || "—"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {po.createdAt ? new Date(po.createdAt).toLocaleString() : ""}
+                </p>
+
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {["requested", "processing", "sent", "failed"].map((s) => (
+                    <button
+                      key={s}
+                      disabled={busyId === po._id}
+                      onClick={() => po._id && setStatusFn(po._id, s)}
+                      className={`px-3 py-1.5 text-xs rounded-md border transition ${
+                        po.status === s
+                          ? "border-indigo-500 text-indigo-600 dark:text-indigo-300"
+                          : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
         {!loading && (res?.items?.length ?? 0) === 0 && !err && (
           <div className="col-span-full text-center text-gray-500 dark:text-gray-400">
@@ -516,7 +548,7 @@ function PayoutsPane() {
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl p-4 flex items-center justify-between">
               <span>{err}</span>
               <button
-                onClick={load}
+                onClick={() => load(1)}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-md border border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/30"
               >
                 <Icon.Refresh /> Retry
@@ -526,7 +558,7 @@ function PayoutsPane() {
         )}
       </div>
 
-      {!loading && res?.pages > 1 && (
+      {!loading && (res?.pages ?? 1) > 1 && (
         <div className="flex items-center justify-center gap-3 mt-6">
           <button
             className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-50"
@@ -536,11 +568,11 @@ function PayoutsPane() {
             Prev
           </button>
           <span className="text-sm text-gray-600 dark:text-gray-300">
-            Page {res.page} / {res.pages}
+            Page {res?.page || page} / {res?.pages || 1}
           </span>
           <button
             className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-50"
-            disabled={page >= res.pages}
+            disabled={page >= (res?.pages || 1)}
             onClick={() => setPage((p) => p + 1)}
           >
             Next

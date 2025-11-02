@@ -1,5 +1,5 @@
 // src/pages/admin/ManageProject.jsx
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { listProjects, setProjectStatus } from "../../services/adminApi";
 
@@ -28,7 +28,7 @@ export default function ManageProject() {
       setErr("");
       setLoading(true);
       const params = { page, limit: 12 };
-      if (status) params.status = status; // don’t send empty status
+      if (status) params.status = status;
       const data = await listProjects(params);
       setRes(data);
     } catch (e) {
@@ -39,8 +39,9 @@ export default function ManageProject() {
   };
 
   useEffect(() => {
-    load();
+    // page change should reload
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    load();
   }, [page]);
 
   const update = async (id, s) => {
@@ -66,7 +67,10 @@ export default function ManageProject() {
               Manage Projects
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              <Link to="/admin" className="text-indigo-600 dark:text-indigo-400">Admin</Link> / Projects
+              <Link to="/admin" className="text-indigo-600 dark:text-indigo-400">
+                Admin
+              </Link>{" "}
+              / Projects
             </p>
           </div>
         </div>
@@ -89,79 +93,108 @@ export default function ManageProject() {
           >
             <option value="">All</option>
             {statuses.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>
+                {s}
+              </option>
             ))}
           </select>
 
-        <button
-            onClick={() => { setPage(1); load(); }}
+          <button
+            onClick={() => {
+              setPage(1);
+              load();
+            }}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             Apply
           </button>
 
-          {err && <span className="ml-auto text-sm text-red-600 dark:text-red-400">{err}</span>}
+          {err && (
+            <span className="ml-auto text-sm text-red-600 dark:text-red-400">
+              {err}
+            </span>
+          )}
         </div>
       </div>
 
       {/* Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Skeletons */}
-        {loading && Array.from({ length: 4 }).map((_, i) => (
-          <div key={`sk-${i}`} className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm backdrop-blur-md animate-pulse">
-            <div className="h-5 w-40 bg-gray-200 dark:bg-gray-700 rounded mb-3" />
-            <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded mb-2" />
-            <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
-            <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded" />
-            <div className="mt-4 flex gap-2">
-              {Array.from({ length: 4 }).map((__, j) => (
-                <div key={j} className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
-              ))}
+        {loading &&
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={`sk-${i}`}
+              className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm backdrop-blur-md animate-pulse"
+            >
+              <div className="h-5 w-40 bg-gray-200 dark:bg-gray-700 rounded mb-3" />
+              <div className="h-4 w-full bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+              <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
+              <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="mt-4 flex gap-2">
+                {Array.from({ length: 4 }).map((__, j) => (
+                  <div
+                    key={j}
+                    className="h-8 w-20 bg-gray-200 dark:bg-gray-700 rounded"
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
 
         {/* Cards */}
-        {!loading && res?.items?.map((p) => (
-          <div key={p._id} className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm backdrop-blur-md">
-            <div className="flex items-start justify-between gap-3 mb-2">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {p.title || "Untitled Project"}
-              </h3>
-              <span className="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                {p.status || "unknown"}
-              </span>
+        {!loading &&
+          res?.items?.map((p) => (
+            <div
+              key={p._id}
+              className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm backdrop-blur-md"
+            >
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {p.title || "Untitled Project"}
+                </h3>
+                <span className="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                  {p.status || "unknown"}
+                </span>
+              </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
+                {p.description || "No description provided."}
+              </p>
+
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                Client: {p.client?.name || p.clientId?.name || "—"} (
+                {p.client?.email || p.clientId?.email || "—"})
+                {p.assignee?.name ||
+                p.freelancer?.name ||
+                p.freelancerId?.name ? (
+                  <>
+                    {" "}
+                    • Dev:{" "}
+                    {p.assignee?.name ||
+                      p.freelancer?.name ||
+                      p.freelancerId?.name}
+                  </>
+                ) : null}
+              </p>
+
+              <div className="flex flex-wrap gap-2 mt-4">
+                {statuses.map((s) => (
+                  <button
+                    key={s}
+                    disabled={busy === p._id}
+                    onClick={() => update(p._id, s)}
+                    className={`px-3 py-1.5 text-xs rounded-md border transition ${
+                      p.status === s
+                        ? "border-indigo-500 text-indigo-600 dark:text-indigo-300"
+                        : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
-
-            <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
-              {p.description || "No description provided."}
-            </p>
-
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-              Client: {p.client?.name || p.clientId?.name || "—"} ({p.client?.email || p.clientId?.email || "—"})
-              {p.assignee?.name || p.freelancer?.name || p.freelancerId?.name ? (
-                <> • Dev: {p.assignee?.name || p.freelancer?.name || p.freelancerId?.name}</>
-              ) : null}
-            </p>
-
-            <div className="flex flex-wrap gap-2 mt-4">
-              {statuses.map((s) => (
-                <button
-                  key={s}
-                  disabled={busy === p._id}
-                  onClick={() => update(p._id, s)}
-                  className={`px-3 py-1.5 text-xs rounded-md border transition ${
-                    p.status === s
-                      ? "border-indigo-500 text-indigo-600 dark:text-indigo-300"
-                      : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+          ))}
 
         {/* Empty */}
         {!loading && (res?.items?.length ?? 0) === 0 && !err && (
