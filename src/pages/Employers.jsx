@@ -1,6 +1,6 @@
-// src/pages/public/Employers.jsx
+// src/pages/Employers.jsx
 import React from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import LandingLayout from "../../layouts/LandingLayout";
 import { CheckCircle } from "lucide-react";

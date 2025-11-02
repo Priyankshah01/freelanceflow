@@ -1,7 +1,7 @@
-// src/pages/public/Freelancers.jsx
+// src/pages/Freelancers.jsx
 import React from "react";
 import LandingLayout from "../../layouts/LandingLayout";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Briefcase, Star, Shield } from "lucide-react";
 
