@@ -9,20 +9,24 @@ import {
 import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
-// Public pages
+// PUBLIC PAGES
 import LandingPage from "./pages/LandingPage";
+import EmployersPage from "./pages/public/Employers";
+import FreelancersPage from "./pages/public/Freelancers";
+import BlogPage from "./pages/public/Blog";
+import BlogPostPage from "./pages/public/BlogPost";
+import ContactPage from "./pages/public/Contact";
 import Login from "./pages/Auth/Login";
-import JobDetail from "./pages/JobDetail";
 import Dashboard from "./pages/Dashboard";
 
-// Freelancer pages
+// FREELANCER PAGES
 import FreelancerDashboard from "./pages/freelancer/Dashboard";
 import FreelancerProfile from "./pages/freelancer/Profile";
 import FreelancerJobs from "./pages/freelancer/Jobs";
 import FreelancerProposals from "./pages/freelancer/Proposals";
 import FreelancerActiveProjects from "./pages/freelancer/Projects";
 
-// Client pages
+// CLIENT PAGES
 import ClientDashboard from "./pages/client/Dashboard";
 import ClientProfile from "./pages/client/Profile";
 import PostJob from "./pages/client/PostJob";
@@ -32,7 +36,7 @@ import ProposalDetail from "./pages/client/ProposalDetail";
 import FindFreelancers from "./pages/client/FindFreelancer";
 import FreelancerPublicProfile from "./pages/client/FreelancerPublicProfile";
 
-// Admin pages
+// ADMIN PAGES
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminManageUser from "./pages/admin/ManageUser";
 import AdminReports from "./pages/admin/Reports";
@@ -55,22 +59,31 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* PUBLIC */}
+        {/* ===== PUBLIC SITE ===== */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/for-employers" element={<EmployersPage />} />
+        <Route path="/for-freelancers" element={<FreelancersPage />} />
+        <Route path="/blog" element={<BlogPage />} />
+        <Route path="/blog/:slug" element={<BlogPostPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<Login />} />
+
+        {/* simple public test dashboard (your old one, fixed) */}
         <Route path="/dashboard" element={<Dashboard />} />
 
-        {/* SHARED AUTH */}
+        {/* ===== SHARED AUTH ===== */}
         <Route
           path="/jobs/:id"
           element={
             <ProtectedRoute>
-              <JobDetail />
+              {/* if you have a job detail page */}
+              {/* <JobDetail /> */}
+              <div className="p-8">Job detail coming soon…</div>
             </ProtectedRoute>
           }
         />
 
-        {/* FREELANCER */}
+        {/* ===== FREELANCER ===== */}
         <Route
           path="/freelancer/dashboard"
           element={
@@ -146,7 +159,7 @@ function App() {
           }
         />
 
-        {/* CLIENT */}
+        {/* ===== CLIENT ===== */}
         <Route
           path="/client/dashboard"
           element={
@@ -212,7 +225,7 @@ function App() {
           }
         />
 
-        {/* ✅ BACKWARD-COMPAT CLIENT PATHS (these match your UI buttons) */}
+        {/* ✅ BACKWARD-COMPAT CLIENT PATHS */}
         <Route
           path="/dashboard/client"
           element={
@@ -278,7 +291,7 @@ function App() {
           }
         />
 
-        {/* ADMIN */}
+        {/* ===== ADMIN ===== */}
         <Route
           path="/admin"
           element={
