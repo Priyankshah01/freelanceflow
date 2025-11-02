@@ -91,7 +91,7 @@ const Projects = () => {
     setMsg('');
     try {
       const qs = new URLSearchParams();
-      qs.set('mine', 'client');
+      qs.set('mine', 'client'); // 👈 tell backend we want only client projects
       if (status) qs.set('status', status);
       qs.set('page', String(page));
       qs.set('limit', '20');
@@ -110,12 +110,32 @@ const Projects = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, page]);
 
-  const markCompleted = async (projectId) => {
+  // 👇 helper that tries BOTH possible backend routes
+  const updateProjectStatus = async (projectId, newStatus) => {
+    // 1) try the UI route we used first
     try {
       await api(`/projects/${projectId}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: 'completed' }),
+        body: JSON.stringify({ status: newStatus }),
       });
+      return;
+    } catch (err) {
+      // only fall back if it’s a 404 / route-missing style error
+      if (!/404|Not Found/i.test(err.message)) {
+        throw err;
+      }
+    }
+
+    // 2) fallback → common REST style: PATCH /projects/:id
+    await api(`/projects/${projectId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: newStatus }),
+    });
+  };
+
+  const markCompleted = async (projectId) => {
+    try {
+      await updateProjectStatus(projectId, 'completed');
       await load();
     } catch (e) {
       setMsg(e.message || 'Failed to update project');
@@ -124,10 +144,7 @@ const Projects = () => {
 
   const cancelProject = async (projectId) => {
     try {
-      await api(`/projects/${projectId}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'cancelled' }),
-      });
+      await updateProjectStatus(projectId, 'cancelled');
       await load();
     } catch (e) {
       setMsg(e.message || 'Failed to update project');
@@ -289,13 +306,13 @@ const Projects = () => {
                       </div>
 
                       <div className="flex flex-col gap-2 ml-4">
-                        {/* OPEN → view proposals (✅ fixed route) */}
+                        {/* OPEN → view proposals */}
                         {p.status === 'open' && (
                           <Button
                             variant="outline"
                             onClick={() =>
                               navigate(
-                                `/client/proposals?project=${projectId}`
+                                `/dashboard/client/proposals?project=${projectId}`
                               )
                             }
                           >
@@ -324,15 +341,15 @@ const Projects = () => {
                           </>
                         )}
 
-                        {/* DONE / CANCELLED → view
-                           if you DON'T have /client/projects/:id route yet
-                           you can also route to /client/proposals?project=... */}
+                        {/* DONE / CANCELLED → view */}
                         {(p.status === 'completed' ||
                           p.status === 'cancelled') && (
                           <Button
                             variant="outline"
                             onClick={() =>
-                              navigate(`/client/projects/${projectId}`)
+                              navigate(
+                                `/dashboard/client/projects/${projectId}`
+                              )
                             }
                           >
                             View
