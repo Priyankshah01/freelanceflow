@@ -310,9 +310,10 @@ const FreelancerDashboard = () => {
                   className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-4"
                 >
                   <div className="flex flex-col">
-                    {/* 👇 keep route same as before; change it later if your router uses /jobs/:id */}
+                    {/* ✅ FIX: router does not have /projects/:id → send to freelancer projects list */}
                     <Link
-                      to={`/projects/${p.id}`}
+                      to={`/freelancer/projects`}
+                      state={{ highlight: p.id }}
                       className="font-medium text-gray-900 hover:underline"
                     >
                       {p.title}
@@ -346,8 +347,9 @@ const FreelancerDashboard = () => {
 
         {/* Quick Links */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* ✅ was /proposals → should be /freelancer/proposals */}
           <Link
-            to="/proposals"
+            to="/freelancer/proposals"
             className="bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg p-6 flex flex-col items-center justify-center"
           >
             <Briefcase className="w-8 h-8 text-indigo-600 mb-2" />
@@ -356,8 +358,9 @@ const FreelancerDashboard = () => {
               {pendingProposals.length} pending
             </p>
           </Link>
+          {/* ✅ was /projects → should be /freelancer/projects */}
           <Link
-            to="/projects"
+            to="/freelancer/projects"
             className="bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg p-6 flex flex-col items-center justify-center"
           >
             <DollarSign className="w-8 h-8 text-green-600 mb-2" />
@@ -366,8 +369,9 @@ const FreelancerDashboard = () => {
               {activeProjects.length} active
             </p>
           </Link>
+          {/* ✅ was /profile → should be /freelancer/profile */}
           <Link
-            to="/profile"
+            to="/freelancer/profile"
             className="bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 rounded-lg p-6 flex flex-col items-center justify-center"
           >
             <Star className="w-8 h-8 text-yellow-600 mb-2" />

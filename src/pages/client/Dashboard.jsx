@@ -271,8 +271,8 @@ const ClientDashboard = () => {
                 )}
 
                 <div className="pt-4 border-t border-gray-200">
-                  {/* this was already clickable — keeping it */}
-                  <Link to="/dashboard/client/profile">
+                  {/* ✅ FIX: now goes to real client profile route */}
+                  <Link to="/client/profile">
                     <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors">
                       Edit Profile
                     </button>
@@ -355,7 +355,8 @@ const ClientDashboard = () => {
                   <p className="text-gray-600 mb-4">
                     Start by posting your first job to find talented freelancers!
                   </p>
-                  <Link to="/dashboard/client/post-job">
+                  {/* ✅ FIX: this was going to /dashboard/... → now to real route */}
+                  <Link to="/client/post-job">
                     <button className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors">
                       Post a Job
                     </button>
