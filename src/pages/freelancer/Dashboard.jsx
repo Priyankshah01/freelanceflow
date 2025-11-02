@@ -9,48 +9,29 @@ import {
   Clock,
   Star,
   TrendingUp,
-  Calendar,
   AlertTriangle,
   LogIn,
 } from 'lucide-react';
 
-/* ================== API helper ================== */
-const API_BASE =
-  import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
-  import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, '') ||
-  'http://localhost:5000';
-
-const api = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('token');
-  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    ...options,
-  });
-
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    data = {};
-  }
-
-  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
-  return data;
-};
+// 👇 use shared API (this already picks Render vs localhost)
+import { get } from '../../services/api';
 
 /* ================== utils ================== */
 const formatCurrency = (amount = 0) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount) || 0);
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(Number(amount) || 0);
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   const d = new Date(dateString);
   if (isNaN(d.getTime())) return 'N/A';
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 };
 
 const statusPillColor = (status) => {
@@ -92,13 +73,18 @@ const FreelancerDashboard = () => {
       .filter(Boolean)
       .filter(
         (proj, i, arr) =>
-          arr.findIndex((x) => String(x?._id || x?.id) === String(proj?._id || proj?.id)) === i
+          arr.findIndex(
+            (x) => String(x?._id || x?.id) === String(proj?._id || proj?.id)
+          ) === i
       );
     const inProgress = list.filter((p) => p?.status === 'in-progress');
     return inProgress.length ? inProgress : list;
   }, [acceptedProposals]);
 
-  const completedProjects = useMemo(() => activeProjects.filter((p) => p?.status === 'completed'), [activeProjects]);
+  const completedProjects = useMemo(
+    () => activeProjects.filter((p) => p?.status === 'completed'),
+    [activeProjects]
+  );
 
   const stats = useMemo(() => {
     return {
@@ -109,22 +95,33 @@ const FreelancerDashboard = () => {
       completedProjects: completedProjects.length,
       pendingProposals: pendingProposals.length,
     };
-  }, [activeProjects, completedProjects.length, pendingProposals.length, effectiveUser]);
+  }, [
+    activeProjects,
+    completedProjects.length,
+    pendingProposals.length,
+    effectiveUser,
+  ]);
 
   const recentProjects = useMemo(() => {
     return (acceptedProposals || [])
       .map((p) => ({
-        id: String(p.project?._id || p.project?.id || p._id),
+        id: String(
+          p.project?._id || p.project?.id || p._id // fallback
+        ),
         title: p.project?.title || 'Untitled Project',
         client: p.project?.client?.name || 'Client',
         status: p.project?.status || 'in-progress',
         deadline:
-          p.project?.timeline?.endDate || p.project?.timeline?.dueDate || p.project?.updatedAt || p.updatedAt,
-        progress: Number(p.project?.workCompleted ?? 0),
+          p.project?.timeline?.endDate ||
+          p.project?.timeline?.dueDate ||
+          p.project?.updatedAt ||
+          p.updatedAt,
         budget:
           p.project?.budget?.type === 'fixed'
             ? p.project?.budget?.amount || 0
-            : p.project?.budget?.hourlyRate?.max || p.project?.budget?.hourlyRate?.min || 0,
+            : p.project?.budget?.hourlyRate?.max ||
+              p.project?.budget?.hourlyRate?.min ||
+              0,
         budgetType: p.project?.budget?.type || 'fixed',
       }))
       .slice(0, 5);
@@ -137,34 +134,29 @@ const FreelancerDashboard = () => {
     try {
       let u = user && (user._id || user.id) ? user : null;
 
+      // recover user if page refreshed
       if (!u) {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          setErr('You are not logged in. Please log in to view your dashboard.');
-          setLoading(false);
-          return;
-        }
-        try {
-          const me = await api('/auth/me');
-          u = me?.data?.user || null;
-          if (u) setEffectiveUser(u);
-        } catch (e) {
-          console.error('Recover user failed:', e);
-          setErr('Session expired or user not found. Please log in again.');
-          setLoading(false);
-          return;
-        }
+        const me = await get('/auth/me');
+        u = me?.data?.user || me?.user || null;
+        if (u) setEffectiveUser(u);
       }
 
+      if (!u) {
+        setErr('You are not logged in. Please log in to view your dashboard.');
+        setLoading(false);
+        return;
+      }
+
+      // fetch proposals in parallel (all through Render now)
       const [pend, acc, rej] = await Promise.all([
-        api('/proposals?status=pending&limit=100'),
-        api('/proposals?status=accepted&limit=100'),
-        api('/proposals?status=rejected&limit=100'),
+        get('/proposals?status=pending&limit=100'),
+        get('/proposals?status=accepted&limit=100'),
+        get('/proposals?status=rejected&limit=100'),
       ]);
 
-      setPendingProposals(pend?.data?.proposals || []);
-      setAcceptedProposals(acc?.data?.proposals || []);
-      setRejectedProposals(rej?.data?.proposals || []);
+      setPendingProposals(pend?.data?.proposals || pend?.proposals || []);
+      setAcceptedProposals(acc?.data?.proposals || acc?.proposals || []);
+      setRejectedProposals(rej?.data?.proposals || rej?.proposals || []);
     } catch (e) {
       console.error('Dashboard load error:', e);
       setErr(e.message || 'Failed to load dashboard');
@@ -175,6 +167,7 @@ const FreelancerDashboard = () => {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id, user?.id]);
 
   if (loading) {
@@ -240,7 +233,8 @@ const FreelancerDashboard = () => {
                       : 'bg-red-100 text-red-800'
                   }`}
                 >
-                  {u.profile.availability.charAt(0).toUpperCase() + u.profile.availability.slice(1)}
+                  {u.profile.availability.charAt(0).toUpperCase() +
+                    u.profile.availability.slice(1)}
                 </span>
               </>
             )}
@@ -266,7 +260,10 @@ const FreelancerDashboard = () => {
             },
             {
               label: 'Avg. Rating',
-              value: stats.averageRating > 0 ? `${Number(stats.averageRating).toFixed(1)} ⭐` : 'No ratings yet',
+              value:
+                stats.averageRating > 0
+                  ? `${Number(stats.averageRating).toFixed(1)} ⭐`
+                  : 'No ratings yet',
               icon: <Star className="w-6 h-6" />,
               color: 'text-yellow-600 bg-yellow-100',
               change: `${u?.ratings?.count || 0} reviews`,
@@ -288,8 +285,12 @@ const FreelancerDashboard = () => {
                 <TrendingUp className="w-4 h-4 text-green-500" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-gray-600">{stat.label}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  {stat.label}
+                </p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {stat.value}
+                </p>
                 <p className="text-xs text-gray-500">{stat.change}</p>
               </div>
             </div>
@@ -298,24 +299,41 @@ const FreelancerDashboard = () => {
 
         {/* Recent Projects */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Projects</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Recent Projects
+          </h2>
           {recentProjects.length ? (
             <div className="space-y-4">
               {recentProjects.map((p) => (
-                <div key={p.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-4">
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-4"
+                >
                   <div className="flex flex-col">
-                    <Link to={`/projects/${p.id}`} className="font-medium text-gray-900 hover:underline">
+                    {/* 👇 keep route same as before; change it later if your router uses /jobs/:id */}
+                    <Link
+                      to={`/projects/${p.id}`}
+                      className="font-medium text-gray-900 hover:underline"
+                    >
                       {p.title}
                     </Link>
                     <p className="text-sm text-gray-500">{p.client}</p>
                   </div>
                   <div className="flex items-center space-x-4">
-                    <span className={`px-2 py-1 rounded-full text-xs ${statusPillColor(p.status)}`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${statusPillColor(
+                        p.status
+                      )}`}
+                    >
                       {p.status.replace('-', ' ')}
                     </span>
-                    <p className="text-sm text-gray-500">{formatDate(p.deadline)}</p>
                     <p className="text-sm text-gray-500">
-                      {p.budgetType === 'fixed' ? formatCurrency(p.budget) : `$${p.budget}/hr`}
+                      {formatDate(p.deadline)}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {p.budgetType === 'fixed'
+                        ? formatCurrency(p.budget)
+                        : `$${p.budget}/hr`}
                     </p>
                   </div>
                 </div>
@@ -334,7 +352,9 @@ const FreelancerDashboard = () => {
           >
             <Briefcase className="w-8 h-8 text-indigo-600 mb-2" />
             <p className="font-medium text-gray-900">View Proposals</p>
-            <p className="text-sm text-gray-500">{pendingProposals.length} pending</p>
+            <p className="text-sm text-gray-500">
+              {pendingProposals.length} pending
+            </p>
           </Link>
           <Link
             to="/projects"
@@ -342,7 +362,9 @@ const FreelancerDashboard = () => {
           >
             <DollarSign className="w-8 h-8 text-green-600 mb-2" />
             <p className="font-medium text-gray-900">My Projects</p>
-            <p className="text-sm text-gray-500">{activeProjects.length} active</p>
+            <p className="text-sm text-gray-500">
+              {activeProjects.length} active
+            </p>
           </Link>
           <Link
             to="/profile"

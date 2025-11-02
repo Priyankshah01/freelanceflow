@@ -6,20 +6,12 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Loader2, Filter, Eye, RefreshCcw, FileText } from 'lucide-react';
 
-const apiRequest = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('token');
-  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    ...options
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
-  return data;
-};
+// 👇 use shared API
+import apiService from '../../services/api';
 
+const apiRequest = async (endpoint, options = {}) => {
+  return apiService.request(endpoint, options);
+};
 
 const StatusPill = ({ status }) => {
   const map = {
@@ -62,7 +54,7 @@ export default function FreelancerProposals() {
       qs.set('limit', '20');
 
       const res = await apiRequest(`/proposals?${qs.toString()}`);
-      setProposals(res?.data?.proposals || []);
+      setProposals(res?.data?.proposals || res?.proposals || []);
       setMsg('');
       setLastLoadedAt(new Date());
     } catch (e) {
@@ -163,7 +155,8 @@ export default function FreelancerProposals() {
                   {proposals.map((p, idx) => {
                     const pid = p?.id || p?._id;
                     const projectId = p?.project?._id || p?.project?.id || p?.project;
-                    const key = pid || `${projectId}-${p?.freelancer?._id || p?.freelancer}-${idx}`;
+                    const key =
+                      pid || `${projectId}-${p?.freelancer?._id || p?.freelancer}-${idx}`;
 
                     return (
                       <li key={key} className="p-4 hover:bg-gray-50 rounded transition">

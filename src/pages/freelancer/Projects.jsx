@@ -15,19 +15,12 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-// Updated API request to point to Render
+// 👇 use shared API so we don't hardcode Render URL here
+import apiService from '../../services/api';
+
+// Updated API request to point to Render (via shared service)
 const apiRequest = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('token');
-  const res = await fetch(`https://freelanceflow-backend-01k4.onrender.com/api${endpoint}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    ...options
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
-  return data;
+  return apiService.request(endpoint, options);
 };
 
 export default function FreelancerActiveProjects() {
@@ -47,7 +40,7 @@ export default function FreelancerActiveProjects() {
     try {
       // Active = proposals you made that are accepted
       const res = await apiRequest('/proposals?status=accepted&limit=100&page=1');
-      setItems(res?.data?.proposals || []);
+      setItems(res?.data?.proposals || res?.proposals || []);
       setMsg('');
     } catch (e) {
       setMsg(e.message || 'Failed to load active projects');

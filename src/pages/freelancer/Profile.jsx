@@ -12,6 +12,9 @@ import {
 import Button from '../../components/common/Button';
 import FormField from '../../components/common/FormField';
 
+// 👇 use shared API (decides localhost vs Render automatically)
+import apiService from '../../services/api';
+
 const FreelancerProfile = () => {
   const { user, updateUser } = useAuth();
   const [saving, setSaving] = useState(false);
@@ -57,31 +60,13 @@ const FreelancerProfile = () => {
   };
 
   // -------- API helper with better error data --------
+  // (same shape as yours, but now uses apiService.request so it never hits localhost)
   const apiRequest = async (endpoint, options = {}) => {
-    const token = localStorage.getItem('token');
-    const url = `http://localhost:5000/api${endpoint}`;
-
     try {
-      const res = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        ...options
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        const err = new Error(data?.message || `HTTP ${res.status}: ${res.statusText}`);
-        err.status = res.status;
-        err.errors = data?.errors;
-        err.response = { status: res.status, data };
-        throw err;
-      }
+      const data = await apiService.request(endpoint, options);
       return data;
     } catch (error) {
-      // Keep original error object to surface server validation messages
+      // keep original behaviour
       throw error;
     }
   };
@@ -256,9 +241,6 @@ const FreelancerProfile = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Profile Settings</h1>
           <p className="text-gray-600">Manage your freelancer profile information</p>
         </div>
-
-        {/* Debug Info (remove in production) */}
-
 
         {/* Message */}
         {message.content && (
