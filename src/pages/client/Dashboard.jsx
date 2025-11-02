@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { Briefcase, Users, DollarSign, FileText, TrendingUp, Calendar, Building, Globe } from 'lucide-react';
-import Link from "next/link";
-
+import { Link } from "react-router-dom";
 
 const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
@@ -260,7 +259,7 @@ const ClientDashboard = () => {
                 )}
 
                 <div className="pt-4 border-t border-gray-200">
-                  <Link href="/dashboard/client/profile">
+                  <Link to="/dashboard/client/profile">
                     <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors">
                       Edit Profile
                     </button>
@@ -327,7 +326,7 @@ const ClientDashboard = () => {
                   <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="font-medium text-gray-900 mb-2">No active projects</h3>
                   <p className="text-gray-600 mb-4">Start by posting your first job to find talented freelancers!</p>
-                    <Link href="/dashboard/client/post-job">
+                    <Link to="/dashboard/client/post-job">
 
                   <button className="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors">
                     Post a Job
