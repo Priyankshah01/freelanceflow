@@ -1,56 +1,26 @@
-// src/pages/freelancer/Jobs.jsx - UPDATED FOR RENDER BACKEND
+// src/pages/freelancer/Jobs.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { 
-  Search, 
-  Filter, 
-  MapPin, 
-  Clock, 
-  DollarSign, 
-  Users, 
-  Eye, 
+import {
+  Search,
+  Filter,
+  MapPin,
+  Clock,
+  DollarSign,
+  Users,
+  Eye,
   Heart,
   Star,
-  Calendar,
   Building,
   ChevronDown,
-  RefreshCw,
   Briefcase,
-  X,
-  ExternalLink
+  ExternalLink,
 } from 'lucide-react';
 import Button from '../../components/common/Button';
+import { get } from '../../services/apiService'; // 👈 use shared API
 
-/* ================== API helper ================== */
-const API_BASE = 
-  import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
-  import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, '') ||
-  'http://localhost:5000';
-
-const apiRequest = async (endpoint, options = {}) => {
-  const token = localStorage.getItem('token');
-  const res = await fetch(`${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
-    },
-    ...options
-  });
-
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    data = {};
-  }
-
-  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
-  return data;
-};
-
-/* ================== Component ================== */
 const Jobs = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -59,7 +29,7 @@ const Jobs = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [savedJobs, setSavedJobs] = useState(new Set());
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -76,7 +46,7 @@ const Jobs = () => {
     timeline: '',
     is_remote: '',
     is_urgent: '',
-    sort: 'newest'
+    sort: 'newest',
   });
 
   const categories = [
@@ -92,21 +62,21 @@ const Jobs = () => {
     { value: 'blockchain', label: 'Blockchain' },
     { value: 'ai-ml', label: 'AI/Machine Learning' },
     { value: 'consulting', label: 'Consulting' },
-    { value: 'other', label: 'Other' }
+    { value: 'other', label: 'Other' },
   ];
 
   const experienceLevels = [
     { value: '', label: 'Any Level' },
     { value: 'entry', label: 'Entry Level' },
     { value: 'intermediate', label: 'Intermediate' },
-    { value: 'expert', label: 'Expert' }
+    { value: 'expert', label: 'Expert' },
   ];
 
   const projectSizes = [
     { value: '', label: 'Any Size' },
     { value: 'small', label: 'Small' },
     { value: 'medium', label: 'Medium' },
-    { value: 'large', label: 'Large' }
+    { value: 'large', label: 'Large' },
   ];
 
   const timelines = [
@@ -114,7 +84,7 @@ const Jobs = () => {
     { value: 'less-than-1-month', label: 'Less than 1 month' },
     { value: '1-3-months', label: '1 to 3 months' },
     { value: '3-6-months', label: '3 to 6 months' },
-    { value: 'more-than-6-months', label: 'More than 6 months' }
+    { value: 'more-than-6-months', label: 'More than 6 months' },
   ];
 
   const sortOptions = [
@@ -122,7 +92,7 @@ const Jobs = () => {
     { value: 'oldest', label: 'Oldest First' },
     { value: 'budget_high', label: 'Highest Budget' },
     { value: 'budget_low', label: 'Lowest Budget' },
-    { value: 'most_proposals', label: 'Most Proposals' }
+    { value: 'most_proposals', label: 'Most Proposals' },
   ];
 
   useEffect(() => {
@@ -136,16 +106,18 @@ const Jobs = () => {
       const params = new URLSearchParams();
       params.append('page', currentPage);
       params.append('limit', 12);
+
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.append(key, value);
       });
 
-      const response = await apiRequest(`/projects?${params.toString()}`);
-      setJobs(response.data.projects || []);
-      setTotalPages(response.data.pagination?.totalPages || 1);
-      setTotalJobs(response.data.pagination?.totalProjects || 0);
+      const response = await get(`/projects?${params.toString()}`);
+
+      setJobs(response?.data?.projects || []);
+      setTotalPages(response?.data?.pagination?.totalPages || 1);
+      setTotalJobs(response?.data?.pagination?.totalProjects || 0);
     } catch (err) {
       console.error('Error fetching jobs:', err);
       setJobs([]);
@@ -161,7 +133,7 @@ const Jobs = () => {
   };
 
   const handleFilterChange = (filterName, value) => {
-    setFilters(prev => ({ ...prev, [filterName]: value }));
+    setFilters((prev) => ({ ...prev, [filterName]: value }));
     setCurrentPage(1);
   };
 
@@ -176,22 +148,24 @@ const Jobs = () => {
       timeline: '',
       is_remote: '',
       is_urgent: '',
-      sort: 'newest'
+      sort: 'newest',
     });
     setSearchQuery('');
     setCurrentPage(1);
   };
 
   const toggleSaveJob = (jobId) => {
-    setSavedJobs(prev => {
-      const newSaved = new Set(prev);
-      newSaved.has(jobId) ? newSaved.delete(jobId) : newSaved.add(jobId);
-      return newSaved;
+    setSavedJobs((prev) => {
+      const next = new Set(prev);
+      next.has(jobId) ? next.delete(jobId) : next.add(jobId);
+      return next;
     });
   };
 
   const formatBudget = (budget) =>
-    budget?.type === 'fixed' ? `${budget.amount}` : `${budget.hourlyRate?.min}-${budget.hourlyRate?.max}/hr`;
+    budget?.type === 'fixed'
+      ? `${budget.amount}`
+      : `${budget.hourlyRate?.min}-${budget.hourlyRate?.max}/hr`;
 
   const formatTimeAgo = (dateString) => {
     const now = new Date();
@@ -232,49 +206,89 @@ const Jobs = () => {
         </span>
       )}
 
-      <p className="text-gray-600 text-sm mb-4 line-clamp-3 leading-relaxed">{job.description}</p>
+      <p className="text-gray-600 text-sm mb-4 line-clamp-3 leading-relaxed">
+        {job.description}
+      </p>
 
       <div className="flex flex-wrap gap-2 mb-4">
-        {job.skills.slice(0, 4).map((skill, i) => (
-          <span key={i} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{skill}</span>
+        {job.skills?.slice(0, 4).map((skill, i) => (
+          <span key={i} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+            {skill}
+          </span>
         ))}
-        {job.skills.length > 4 && <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">+{job.skills.length - 4} more</span>}
+        {job.skills?.length > 4 && (
+          <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">
+            +{job.skills.length - 4} more
+          </span>
+        )}
       </div>
 
       <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
         <div className="flex items-center space-x-4">
-          <span className="flex items-center"><DollarSign className="w-4 h-4 mr-1" />{formatBudget(job.budget)}</span>
-          <span className="flex items-center"><Clock className="w-4 h-4 mr-1" />{job.timeline?.duration}</span>
-          <span className="flex items-center"><Users className="w-4 h-4 mr-1" />{job.experienceLevel}</span>
+          <span className="flex items-center">
+            <DollarSign className="w-4 h-4 mr-1" />
+            {formatBudget(job.budget)}
+          </span>
+          <span className="flex items-center">
+            <Clock className="w-4 h-4 mr-1" />
+            {job.timeline?.duration}
+          </span>
+          <span className="flex items-center">
+            <Users className="w-4 h-4 mr-1" />
+            {job.experienceLevel}
+          </span>
         </div>
-        <span className="flex items-center"><MapPin className="w-4 h-4 mr-1" />{job.isRemote ? 'Remote' : job.location}</span>
+        <span className="flex items-center">
+          <MapPin className="w-4 h-4 mr-1" />
+          {job.isRemote ? 'Remote' : job.location}
+        </span>
       </div>
 
       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
         <div className="flex items-center space-x-4">
           <div className="flex items-center">
             {job.client?.avatar ? (
-              <img src={job.client.avatar} alt={job.client.name} className="w-6 h-6 rounded-full mr-2" />
+              <img
+                src={job.client.avatar}
+                alt={job.client.name}
+                className="w-6 h-6 rounded-full mr-2"
+              />
             ) : (
               <Building className="w-4 h-4 text-gray-400 mr-2" />
             )}
-            <span className="text-sm text-gray-600">{job.client?.profile?.company || job.client?.name}</span>
+            <span className="text-sm text-gray-600">
+              {job.client?.profile?.company || job.client?.name}
+            </span>
             {job.client?.isVerified && <Star className="w-4 h-4 text-yellow-500 ml-1" />}
           </div>
           <span className="text-xs text-gray-500">{formatTimeAgo(job.createdAt)}</span>
         </div>
-        
+
         <div className="flex items-center space-x-2">
-          <span className="text-xs text-gray-500 flex items-center"><Eye className="w-3 h-3 mr-1" />{job.viewCount || 0}</span>
+          <span className="text-xs text-gray-500 flex items-center">
+            <Eye className="w-3 h-3 mr-1" />
+            {job.viewCount || 0}
+          </span>
           <span className="text-xs text-gray-500">{job.proposalCount} proposals</span>
         </div>
       </div>
 
       <div className="mt-4 flex space-x-2">
-        <Button variant="primary" size="sm" className="flex-1" onClick={() => navigate(`/jobs/${job._id}`)}>
+        <Button
+          variant="primary"
+          size="sm"
+          className="flex-1"
+          onClick={() => navigate(`/jobs/${job._id}`)}
+        >
           <ExternalLink className="w-4 h-4 mr-1" /> View Details
         </Button>
-        <Button variant="outline" size="sm" onClick={() => navigate(`/jobs/${job._id}#apply`)}>Apply Now</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigate(`/jobs/${job._id}#apply`)}
+        >
+          Apply Now
+        </Button>
       </div>
     </div>
   );
@@ -295,15 +309,28 @@ const Jobs = () => {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search jobs..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
-            <Button type="submit" className="flex items-center space-x-2"><Search className="w-4 h-4" /><span>Search</span></Button>
-            <Button type="button" variant="outline" onClick={() => setShowFilters(!showFilters)} className="flex items-center space-x-2">
-              <Filter className="w-4 h-4" /><span>Filters</span>
-              <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            <Button type="submit" className="flex items-center space-x-2">
+              <Search className="w-4 h-4" />
+              <span>Search</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center space-x-2"
+            >
+              <Filter className="w-4 h-4" />
+              <span>Filters</span>
+              <ChevronDown
+                className={`w-4 h-4 transition-transform ${
+                  showFilters ? 'rotate-180' : ''
+                }`}
+              />
             </Button>
           </form>
 
@@ -322,25 +349,47 @@ const Jobs = () => {
           </div>
         ) : jobs.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {jobs.map(job => <JobCard key={job._id} job={job} />)}
+            {jobs.map((job) => (
+              <JobCard key={job._id} job={job} />
+            ))}
           </div>
         ) : (
           <div className="text-center py-12">
             <Briefcase className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs found</h3>
             <p className="text-gray-600 mb-4">
-              {searchQuery || Object.values(filters).some(f => f) ? 'Try adjusting your search criteria or filters' : 'No jobs are currently available'}
+              {searchQuery || Object.values(filters).some((f) => f)
+                ? 'Try adjusting your search criteria or filters'
+                : 'No jobs are currently available'}
             </p>
-            {(searchQuery || Object.values(filters).some(f => f)) && <Button onClick={clearFilters} variant="outline">Clear all filters</Button>}
+            {(searchQuery || Object.values(filters).some((f) => f)) && (
+              <Button onClick={clearFilters} variant="outline">
+                Clear all filters
+              </Button>
+            )}
           </div>
         )}
 
         {/* Pagination */}
         {!loading && totalPages > 1 && (
           <div className="flex justify-center items-center space-x-2">
-            <Button variant="outline" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Previous</Button>
-            <span className="px-4 py-2 text-sm text-gray-600">Page {currentPage} of {totalPages}</span>
-            <Button variant="outline" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>Next</Button>
+            <Button
+              variant="outline"
+              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="px-4 py-2 text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
           </div>
         )}
       </div>
