@@ -18,7 +18,7 @@ import {
 import Button from '../../components/common/Button';
 import FormField from '../../components/common/FormField';
 
-// 🔗 use SAME backend as other client pages
+// 🔗 SAME backend as other client pages
 const API_BASE =
   import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
   'https://freelanceflow-backend-01k4.onrender.com/api';
@@ -80,9 +80,21 @@ const PostJob = () => {
   ];
 
   const experienceLevels = [
-    { value: 'entry', label: 'Entry Level', description: 'Looking for someone relatively new to this field' },
-    { value: 'intermediate', label: 'Intermediate', description: 'Looking for substantial experience in this field' },
-    { value: 'expert', label: 'Expert', description: 'Looking for comprehensive and deep expertise in this field' },
+    {
+      value: 'entry',
+      label: 'Entry Level',
+      description: 'Looking for someone relatively new to this field',
+    },
+    {
+      value: 'intermediate',
+      label: 'Intermediate',
+      description: 'Looking for substantial experience in this field',
+    },
+    {
+      value: 'expert',
+      label: 'Expert',
+      description: 'Looking for comprehensive and deep expertise in this field',
+    },
   ];
 
   const projectSizes = [
@@ -105,17 +117,16 @@ const PostJob = () => {
 
   const apiRequest = async (endpoint, options = {}) => {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       ...options,
     });
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data.message || 'Request failed');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.message || 'Request failed');
     }
     return data;
   };
@@ -123,7 +134,7 @@ const PostJob = () => {
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    // nested fields
+    // budget.hourlyRate.min / budget.hourlyRate.max
     if (name.startsWith('budget.hourlyRate.')) {
       const field = name.replace('budget.hourlyRate.', '');
       setFormData((prev) => ({
@@ -139,6 +150,7 @@ const PostJob = () => {
       return;
     }
 
+    // timeline.startDate etc.
     if (name.startsWith('timeline.')) {
       const field = name.replace('timeline.', '');
       setFormData((prev) => ({
@@ -151,6 +163,7 @@ const PostJob = () => {
       return;
     }
 
+    // budget.type / budget.amount
     if (name.startsWith('budget.')) {
       const field = name.replace('budget.', '');
       setFormData((prev) => ({
@@ -163,26 +176,26 @@ const PostJob = () => {
       return;
     }
 
+    // normal fields
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
-  const addItem = (type, input, setInput) => {
+  const addItem = (field, input, setInput) => {
     if (!input.trim()) return;
-
     setFormData((prev) => ({
       ...prev,
-      [type]: [...prev[type], input.trim()],
+      [field]: [...prev[field], input.trim()],
     }));
     setInput('');
   };
 
-  const removeItem = (type, index) => {
+  const removeItem = (field, index) => {
     setFormData((prev) => ({
       ...prev,
-      [type]: prev[type].filter((_, i) => i !== index),
+      [field]: prev[field].filter((_, i) => i !== index),
     }));
   };
 
@@ -195,12 +208,11 @@ const PostJob = () => {
       case 3:
         if (formData.budget.type === 'fixed') {
           return Number(formData.budget.amount) >= 5;
-        } else {
-          return (
-            Number(formData.budget.hourlyRate.min) >= 5 &&
-            Number(formData.budget.hourlyRate.max) > Number(formData.budget.hourlyRate.min)
-          );
         }
+        return (
+          Number(formData.budget.hourlyRate.min) >= 5 &&
+          Number(formData.budget.hourlyRate.max) > Number(formData.budget.hourlyRate.min)
+        );
       case 4:
         return !!formData.timeline.duration;
       default:
@@ -228,7 +240,7 @@ const PostJob = () => {
 
     setSaving(true);
     try {
-      // clean up payload for backend
+      // build payload with client id
       const payload = {
         ...formData,
         client: user?._id || user?.id || undefined,
@@ -241,12 +253,12 @@ const PostJob = () => {
 
       showMessage('success', 'Job posted successfully!');
 
-      // 👇 keep client routes consistent
+      // ✅ go to client projects page
       setTimeout(() => {
-        navigate('/dashboard/client/manage-jobs');
-      }, 1500);
-    } catch (error) {
-      showMessage('error', `Failed to post job: ${error.message}`);
+        navigate('/client/projects');
+      }, 1300);
+    } catch (err) {
+      showMessage('error', `Failed to post job: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -269,7 +281,7 @@ const PostJob = () => {
           <p className="text-gray-600">Find the perfect freelancer for your project</p>
         </div>
 
-        {/* Progress Steps */}
+        {/* Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             {steps.map((step) => {
@@ -283,7 +295,11 @@ const PostJob = () => {
                         : 'bg-white border-gray-300 text-gray-400'
                     }`}
                   >
-                    {currentStep > step.number ? <CheckCircle className="w-6 h-6" /> : <Icon className="w-5 h-5" />}
+                    {currentStep > step.number ? (
+                      <CheckCircle className="w-6 h-6" />
+                    ) : (
+                      <Icon className="w-5 h-5" />
+                    )}
                   </div>
                   <div className="ml-3 hidden md:block">
                     <div
@@ -293,9 +309,7 @@ const PostJob = () => {
                     >
                       Step {step.number}
                     </div>
-                    <div
-                      className={`text-sm ${currentStep >= step.number ? 'text-gray-900' : 'text-gray-400'}`}
-                    >
+                    <div className={`text-sm ${currentStep >= step.number ? 'text-gray-900' : 'text-gray-400'}`}>
                       {step.title}
                     </div>
                   </div>
@@ -321,14 +335,18 @@ const PostJob = () => {
                 : 'bg-red-50 border border-red-200 text-red-700'
             }`}
           >
-            {message.type === 'success' ? <CheckCircle className="w-5 h-5 mr-2" /> : <AlertCircle className="w-5 h-5 mr-2" />}
+            {message.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 mr-2" />
+            ) : (
+              <AlertCircle className="w-5 h-5 mr-2" />
+            )}
             {message.content}
           </div>
         )}
 
-        {/* Form */}
+        {/* Card */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          {/* Step 1 */}
+          {/* Step 1: Project Details */}
           {currentStep === 1 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Project Details</h2>
@@ -342,7 +360,9 @@ const PostJob = () => {
                 required
                 className="mb-4"
               />
-              <p className="text-xs text-gray-500 -mt-3 mb-4">{formData.title.length}/100 characters (minimum 10)</p>
+              <p className="text-xs text-gray-500 -mt-3 mb-4">
+                {formData.title.length}/100 characters (minimum 10)
+              </p>
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -356,9 +376,9 @@ const PostJob = () => {
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="">Select a category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.value} value={cat.value}>
-                      {cat.label}
+                  {categories.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
                     </option>
                   ))}
                 </select>
@@ -384,7 +404,7 @@ const PostJob = () => {
             </div>
           )}
 
-          {/* Step 2 */}
+          {/* Step 2: Skills & Experience */}
           {currentStep === 2 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Skills & Experience Required</h2>
@@ -408,13 +428,20 @@ const PostJob = () => {
                       }
                     }}
                   />
-                  <Button type="button" onClick={() => addItem('skills', skillInput, setSkillInput)} disabled={!skillInput.trim()}>
+                  <Button
+                    type="button"
+                    onClick={() => addItem('skills', skillInput, setSkillInput)}
+                    disabled={!skillInput.trim()}
+                  >
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {formData.skills.map((skill, index) => (
-                    <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-indigo-100 text-indigo-800">
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-indigo-100 text-indigo-800"
+                    >
                       {skill}
                       <button
                         type="button"
@@ -426,10 +453,12 @@ const PostJob = () => {
                     </span>
                   ))}
                 </div>
-                {formData.skills.length === 0 && <p className="text-sm text-gray-500 mt-2">Add at least one skill</p>}
+                {formData.skills.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-2">Add at least one skill</p>
+                )}
               </div>
 
-              {/* Experience Level */}
+              {/* Experience level */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Experience Level <span className="text-red-500">*</span>
@@ -454,7 +483,7 @@ const PostJob = () => {
                 </div>
               </div>
 
-              {/* Project Size */}
+              {/* Project size */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Project Size <span className="text-red-500">*</span>
@@ -478,15 +507,146 @@ const PostJob = () => {
                   ))}
                 </div>
               </div>
+
+              {/* Requirements (optional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Additional Requirements</label>
+                <div className="flex space-x-2 mb-3">
+                  <input
+                    type="text"
+                    value={requirementInput}
+                    onChange={(e) => setRequirementInput(e.target.value)}
+                    placeholder="Add a requirement (e.g., NDA, timezone, tool)"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addItem('requirements', requirementInput, setRequirementInput);
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => addItem('requirements', requirementInput, setRequirementInput)}
+                    disabled={!requirementInput.trim()}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {formData.requirements.map((item, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800"
+                    >
+                      {item}
+                      <button
+                        type="button"
+                        onClick={() => removeItem('requirements', i)}
+                        className="ml-1 text-gray-500 hover:text-gray-700"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Deliverables (optional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Deliverables</label>
+                <div className="flex space-x-2 mb-3">
+                  <input
+                    type="text"
+                    value={deliverableInput}
+                    onChange={(e) => setDeliverableInput(e.target.value)}
+                    placeholder="Add a deliverable (e.g., Figma file, docs, demo)"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addItem('deliverables', deliverableInput, setDeliverableInput);
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => addItem('deliverables', deliverableInput, setDeliverableInput)}
+                    disabled={!deliverableInput.trim()}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {formData.deliverables.map((item, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800"
+                    >
+                      {item}
+                      <button
+                        type="button"
+                        onClick={() => removeItem('deliverables', i)}
+                        className="ml-1 text-gray-500 hover:text-gray-700"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tags (optional) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+                <div className="flex space-x-2 mb-3">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    placeholder="Add a tag (e.g., frontend, urgent, Shopify)"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addItem('tags', tagInput, setTagInput);
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => addItem('tags', tagInput, setTagInput)}
+                    disabled={!tagInput.trim()}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {formData.tags.map((item, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800"
+                    >
+                      {item}
+                      <button
+                        type="button"
+                        onClick={() => removeItem('tags', i)}
+                        className="ml-1 text-gray-500 hover:text-gray-700"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Step 3 */}
+          {/* Step 3: Budget */}
           {currentStep === 3 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Budget</h2>
 
-              {/* Budget Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   How do you want to pay? <span className="text-red-500">*</span>
@@ -523,7 +683,6 @@ const PostJob = () => {
                 </div>
               </div>
 
-              {/* Fixed Budget */}
               {formData.budget.type === 'fixed' && (
                 <FormField
                   label="Fixed Budget ($)"
@@ -538,7 +697,6 @@ const PostJob = () => {
                 />
               )}
 
-              {/* Hourly Budget */}
               {formData.budget.type === 'hourly' && (
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -566,7 +724,7 @@ const PostJob = () => {
             </div>
           )}
 
-          {/* Step 4 */}
+          {/* Step 4: Timeline */}
           {currentStep === 4 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Project Timeline</h2>
@@ -583,9 +741,9 @@ const PostJob = () => {
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   <option value="">Select timeline</option>
-                  {timelineDurations.map((duration) => (
-                    <option key={duration.value} value={duration.value}>
-                      {duration.label}
+                  {timelineDurations.map((d) => (
+                    <option key={d.value} value={d.value}>
+                      {d.label}
                     </option>
                   ))}
                 </select>
@@ -644,13 +802,13 @@ const PostJob = () => {
             </div>
           )}
 
-          {/* Step 5 */}
+          {/* Step 5: Review */}
           {currentStep === 5 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Review Your Job Post</h2>
 
               <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">{formData.title}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{formData.title || 'Untitled project'}</h3>
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
@@ -664,7 +822,9 @@ const PostJob = () => {
                     <p className="text-sm text-gray-900">
                       {formData.budget.type === 'fixed'
                         ? `$${formData.budget.amount || 0}`
-                        : `$${formData.budget.hourlyRate.min || 0} - $${formData.budget.hourlyRate.max || 0}/hr`}
+                        : `$${formData.budget.hourlyRate.min || 0} - $${
+                            formData.budget.hourlyRate.max || 0
+                          }/hr`}
                     </p>
                   </div>
                   <div>
@@ -682,18 +842,23 @@ const PostJob = () => {
                 <div className="mb-4">
                   <span className="text-sm font-medium text-gray-500">Skills:</span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {formData.skills.map((skill, index) => (
-                      <span key={index} className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">
-                        {skill}
-                      </span>
-                    ))}
-                    {formData.skills.length === 0 && <span className="text-sm text-gray-500">No skills added</span>}
+                    {formData.skills.length > 0 ? (
+                      formData.skills.map((skill, i) => (
+                        <span key={i} className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">
+                          {skill}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-gray-400">No skills added</span>
+                    )}
                   </div>
                 </div>
 
                 <div>
                   <span className="text-sm font-medium text-gray-500">Description:</span>
-                  <p className="text-sm text-gray-900 mt-1 leading-relaxed">{formData.description}</p>
+                  <p className="text-sm text-gray-900 mt-1 leading-relaxed">
+                    {formData.description || 'No description provided'}
+                  </p>
                 </div>
               </div>
 
@@ -711,7 +876,7 @@ const PostJob = () => {
             </div>
           )}
 
-          {/* Navigation Buttons */}
+          {/* bottom nav */}
           <div className="flex justify-between pt-6 border-t border-gray-200 mt-8">
             <Button type="button" variant="secondary" onClick={handlePrevious} disabled={currentStep === 1}>
               Previous

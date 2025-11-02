@@ -1,5 +1,5 @@
 // src/pages/client/Profile.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import {
@@ -14,7 +14,7 @@ import {
 import Button from '../../components/common/Button';
 import FormField from '../../components/common/FormField';
 
-// 🔗 use SAME backend as rest
+// 🔗 use SAME backend as rest of client portal
 const API_BASE =
   import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
   'https://freelanceflow-backend-01k4.onrender.com/api';
@@ -23,9 +23,13 @@ const ClientProfile = () => {
   const { user, updateUser } = useAuth();
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', content: '' });
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const fileInputRef = useRef(null);
 
   const [profileData, setProfileData] = useState({
     name: '',
+    avatar: '',
     profile: {
       company: '',
       industry: '',
@@ -42,6 +46,7 @@ const ClientProfile = () => {
     if (user) {
       setProfileData({
         name: user.name || '',
+        avatar: user.avatar || '',
         profile: {
           company: user.profile?.company || '',
           industry: user.profile?.industry || '',
@@ -65,7 +70,12 @@ const ClientProfile = () => {
 
     const res = await fetch(url, {
       headers: {
-        'Content-Type': 'application/json',
+        // when sending FormData we will override headers, so keep it flexible
+        ...(options.body instanceof FormData
+          ? {}
+          : {
+              'Content-Type': 'application/json',
+            }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       ...options,
@@ -85,7 +95,9 @@ const ClientProfile = () => {
 
   const cleanObject = (obj) => {
     if (Array.isArray(obj)) {
-      return obj.map(cleanObject).filter((v) => v !== '' && v !== null && v !== undefined);
+      return obj
+        .map(cleanObject)
+        .filter((v) => v !== '' && v !== null && v !== undefined);
     }
     if (obj && typeof obj === 'object') {
       const out = {};
@@ -153,7 +165,19 @@ const ClientProfile = () => {
       });
 
       const updatedUser = response?.data?.user || response?.user || response;
-      if (updatedUser) updateUser(updatedUser);
+      if (updatedUser) {
+        updateUser(updatedUser);
+        // refresh local
+        setProfileData((prev) => ({
+          ...prev,
+          name: updatedUser.name || prev.name,
+          avatar: updatedUser.avatar || prev.avatar,
+          profile: {
+            ...prev.profile,
+            ...(updatedUser.profile || {}),
+          },
+        }));
+      }
 
       showMessage('success', 'Profile updated successfully!');
       setFieldErrors({});
@@ -166,7 +190,9 @@ const ClientProfile = () => {
           errs[key] = e.msg || e.message || 'Invalid value';
         });
         setFieldErrors(errs);
-        const msg = serverErrors.map((e) => `${e.param || e.path}: ${e.msg || e.message}`).join(' • ');
+        const msg = serverErrors
+          .map((e) => `${e.param || e.path}: ${e.msg || e.message}`)
+          .join(' • ');
         showMessage('error', `Update failed: ${msg}`);
       } else {
         showMessage('error', error.message || 'Update failed');
@@ -199,6 +225,51 @@ const ClientProfile = () => {
         ...prev,
         [name]: value,
       }));
+    }
+  };
+
+  // 👇 handle logo upload
+  const handleLogoClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''; // reset so same file can be re-uploaded
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleLogoSelected = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      // ⬇️ if your backend expects another field name (e.g. "avatar" or "file"), change it here
+      formData.append('logo', file);
+
+      // ⬇️ if your backend route is different, change this:
+      const res = await apiRequest('/users/profile/logo', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const updatedUser = res?.data?.user || res?.user || res;
+      if (updatedUser) {
+        updateUser(updatedUser);
+        setProfileData((prev) => ({
+          ...prev,
+          avatar: updatedUser.avatar || prev.avatar,
+          profile: {
+            ...prev.profile,
+            ...(updatedUser.profile || {}),
+          },
+        }));
+      }
+
+      showMessage('success', 'Logo uploaded successfully!');
+    } catch (err) {
+      showMessage('error', err.message || 'Failed to upload logo');
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -246,19 +317,44 @@ const ClientProfile = () => {
                 {/* avatar / logo */}
                 <div className="flex items-center space-x-6 pb-6 border-b border-gray-200">
                   <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-                    {user?.avatar ? (
-                      <img src={user.avatar} alt={user.name} className="w-24 h-24 rounded-full object-cover" />
+                    {profileData.avatar ? (
+                      <img
+                        src={profileData.avatar}
+                        alt={profileData.name}
+                        className="w-24 h-24 rounded-full object-cover"
+                      />
+                    ) : user?.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-24 h-24 rounded-full object-cover"
+                      />
                     ) : (
                       <Building className="w-10 h-10 text-gray-400" />
                     )}
                   </div>
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">Company Logo</h3>
-                    <p className="text-sm text-gray-500">Upload your company logo</p>
-                    <Button variant="outline" size="sm" className="mt-2" type="button">
+                    <p className="text-sm text-gray-500">Upload your company logo (PNG/JPG)</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      type="button"
+                      onClick={handleLogoClick}
+                      disabled={uploadingLogo}
+                    >
                       <Upload className="w-4 h-4 mr-2" />
-                      Upload Logo
+                      {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
                     </Button>
+                    {/* hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLogoSelected}
+                    />
                   </div>
                 </div>
 
@@ -274,7 +370,13 @@ const ClientProfile = () => {
                     error={fieldErrors['name']}
                   />
 
-                  <FormField label="Email" type="email" value={user?.email || ''} disabled className="bg-gray-50" />
+                  <FormField
+                    label="Email"
+                    type="email"
+                    value={user?.email || ''}
+                    disabled
+                    className="bg-gray-50"
+                  />
 
                   <FormField
                     label="Company Name"
@@ -286,6 +388,7 @@ const ClientProfile = () => {
                     error={fieldErrors['profile.company']}
                   />
 
+                  {/* industry */}
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Industry <span className="text-red-500">*</span>
@@ -311,6 +414,7 @@ const ClientProfile = () => {
                     )}
                   </div>
 
+                  {/* company size */}
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Company Size</label>
                     <select
@@ -392,7 +496,9 @@ const ClientProfile = () => {
               <span className="text-sm text-gray-600">
                 Your profile is {user?.profileCompleteness || 0}% complete
               </span>
-              <span className="text-sm font-medium text-indigo-600">{user?.profileCompleteness || 0}%</span>
+              <span className="text-sm font-medium text-indigo-600">
+                {user?.profileCompleteness || 0}%
+              </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
@@ -400,7 +506,9 @@ const ClientProfile = () => {
                 style={{ width: `${user?.profileCompleteness || 0}%` }}
               />
             </div>
-            <p className="text-xs text-gray-500 mt-2">Complete your profile to attract better freelancers!</p>
+            <p className="text-xs text-gray-500 mt-2">
+              Complete your profile to attract better freelancers!
+            </p>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -418,19 +526,23 @@ const ClientProfile = () => {
                 <span className="text-gray-600">Email:</span>
                 <span className="ml-2 font-medium text-gray-900">{user?.email}</span>
                 {user?.isVerified && (
-                  <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">Verified</span>
+                  <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
+                    Verified
+                  </span>
                 )}
               </div>
               <div className="flex items-center text-sm">
                 <Building className="w-4 h-4 text-gray-400 mr-3" />
                 <span className="text-gray-600">Account type:</span>
-                <span className="ml-2 font-medium text-gray-900 capitalize">{user?.role}</span>
+                <span className="ml-2 font-medium text-gray-900 capitalize">
+                  {user?.role}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Company Overview Card */}
+        {/* Company overview card */}
         {(profileData.profile.company || profileData.profile.industry) && (
           <div className="mt-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg text-white p-6">
             <div className="flex items-center space-x-4">
@@ -438,7 +550,9 @@ const ClientProfile = () => {
                 <Building className="w-8 h-8" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold">{profileData.profile.company || 'Your Company'}</h3>
+                <h3 className="text-xl font-semibold">
+                  {profileData.profile.company || 'Your Company'}
+                </h3>
                 <div className="flex items-center space-x-4 mt-2 text-indigo-100">
                   {profileData.profile.industry && (
                     <span className="flex items-center">

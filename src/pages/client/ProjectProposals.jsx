@@ -4,9 +4,17 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import Button from '../../components/common/Button';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { CheckCircle, XCircle, Eye, Loader2, Filter, Users, Inbox } from 'lucide-react';
+import {
+  CheckCircle,
+  XCircle,
+  Eye,
+  Loader2,
+  Filter,
+  Users,
+  Inbox,
+} from 'lucide-react';
 
-// 🔗 shared API base
+// 🔗 shared API base (same as other client pages)
 const API_BASE =
   import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
   'https://freelanceflow-backend-01k4.onrender.com/api';
@@ -33,7 +41,11 @@ const StatusPill = ({ status }) => {
     withdrawn: 'bg-gray-100 text-gray-800',
   };
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] || 'bg-gray-100 text-gray-800'}`}>
+    <span
+      className={`px-2 py-1 rounded-full text-xs font-medium ${
+        map[status] || 'bg-gray-100 text-gray-800'
+      }`}
+    >
       {status}
     </span>
   );
@@ -54,17 +66,20 @@ const ProjectProposals = () => {
   const status = params.get('status') || '';
   const page = Number(params.get('page') || 1);
 
-  const canManage = useMemo(() => user?.role === 'client' || user?.role === 'admin', [user]);
+  const canManage = useMemo(
+    () => user?.role === 'client' || user?.role === 'admin',
+    [user]
+  );
 
   const load = async () => {
     setLoading(true);
     try {
-      // sidebar stats + project list
+      // 1) sidebar stats + project list
       const statRes = await api('/proposals/stats/my-projects');
       setStats(statRes?.data?.stats || []);
       setProjects(statRes?.data?.projects || []);
 
-      // proposals list
+      // 2) proposals list
       const qs = new URLSearchParams();
       if (projectId) qs.set('project', projectId);
       if (status) qs.set('status', status);
@@ -123,7 +138,9 @@ const ProjectProposals = () => {
         </div>
 
         {message && (
-          <div className="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-700">{message}</div>
+          <div className="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-700">
+            {message}
+          </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -166,7 +183,9 @@ const ProjectProposals = () => {
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex items-center mb-3">
                 <Users className="w-4 h-4 mr-2 text-gray-500" />
-                <h3 className="text-sm font-semibold text-gray-700">Per-Project Stats</h3>
+                <h3 className="text-sm font-semibold text-gray-700">
+                  Per-Project Stats
+                </h3>
               </div>
               {stats.length === 0 ? (
                 <p className="text-xs text-gray-500">No proposals yet.</p>
@@ -176,7 +195,8 @@ const ProjectProposals = () => {
                     <div key={s.projectId || s.id} className="text-sm">
                       <div className="font-medium text-gray-900">{s.title}</div>
                       <div className="text-xs text-gray-600">
-                        total {s.total} • pending {s.pending || 0} • accepted {s.accepted || 0} • rejected {s.rejected || 0}
+                        total {s.total} • pending {s.pending || 0} • accepted{' '}
+                        {s.accepted || 0} • rejected {s.rejected || 0}
                       </div>
                     </div>
                   ))}
@@ -190,7 +210,9 @@ const ProjectProposals = () => {
             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
                 <div className="text-sm text-gray-700">
-                  {projectId ? 'Proposals for selected project' : 'Proposals across your projects'}
+                  {projectId
+                    ? 'Proposals for selected project'
+                    : 'Proposals across your projects'}
                 </div>
               </div>
 
@@ -207,7 +229,12 @@ const ProjectProposals = () => {
                 <ul className="divide-y divide-gray-200">
                   {proposals.map((p, idx) => {
                     const pid = p?.id || p?._id;
-                    const key = pid || `${p?.project?._id || p?.project}-${p?.freelancer?._id || p?.freelancer}-${idx}`;
+                    const key =
+                      pid ||
+                      `${p?.project?._id || p?.project}-${
+                        p?.freelancer?._id || p?.freelancer
+                      }-${idx}`;
+
                     return (
                       <li key={key} className="p-4">
                         <div className="flex items-center justify-between">
@@ -220,11 +247,19 @@ const ProjectProposals = () => {
                             </div>
                             <div className="text-sm text-gray-600">
                               Bid:{' '}
-                              <span className="font-medium text-gray-900">${Number(p.bidAmount || 0)}</span> • Submitted:{' '}
-                              {p.submittedAt ? new Date(p.submittedAt).toLocaleString() : '—'}
+                              <span className="font-medium text-gray-900">
+                                ${Number(p.bidAmount || 0)}
+                              </span>{' '}
+                              • Submitted:{' '}
+                              {p.submittedAt
+                                ? new Date(p.submittedAt).toLocaleString()
+                                : '—'}
                             </div>
                             <div className="text-sm text-gray-600">
-                              By: <span className="font-medium">{p.freelancer?.name || 'Freelancer'}</span>
+                              By:{' '}
+                              <span className="font-medium">
+                                {p.freelancer?.name || 'Freelancer'}
+                              </span>
                             </div>
                           </div>
 
@@ -233,8 +268,11 @@ const ProjectProposals = () => {
                               variant="outline"
                               onClick={() => {
                                 if (!pid) return;
-                                // 👇 if your route is /dashboard/client/proposals/:id, change it here
-                                navigate(`/dashboard/client/proposals/${pid}`, { state: { proposalId: pid } });
+                                // ✅ this was the problem: route must match your router
+                                // your client detail page is at /client/proposals/:id
+                                navigate(`/client/proposals/${pid}`, {
+                                  state: { proposalId: pid },
+                                });
                               }}
                             >
                               <Eye className="w-4 h-4 mr-1" /> View
