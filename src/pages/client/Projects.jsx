@@ -289,13 +289,13 @@ const Projects = () => {
                       </div>
 
                       <div className="flex flex-col gap-2 ml-4">
-                        {/* OPEN → view proposals */}
+                        {/* OPEN → view proposals (✅ fixed route) */}
                         {p.status === 'open' && (
                           <Button
                             variant="outline"
                             onClick={() =>
                               navigate(
-                                `/dashboard/client/proposals?project=${projectId}`
+                                `/client/proposals?project=${projectId}`
                               )
                             }
                           >
@@ -324,15 +324,15 @@ const Projects = () => {
                           </>
                         )}
 
-                        {/* DONE / CANCELLED → view */}
+                        {/* DONE / CANCELLED → view
+                           if you DON'T have /client/projects/:id route yet
+                           you can also route to /client/proposals?project=... */}
                         {(p.status === 'completed' ||
                           p.status === 'cancelled') && (
                           <Button
                             variant="outline"
                             onClick={() =>
-                              navigate(
-                                `/dashboard/client/projects/${projectId}`
-                              )
+                              navigate(`/client/projects/${projectId}`)
                             }
                           >
                             View
