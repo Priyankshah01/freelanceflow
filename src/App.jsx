@@ -18,6 +18,7 @@ import BlogPostPage from "./pages/BlogPost";
 import ContactPage from "./pages/Contact";
 import Login from "./pages/Auth/Login";
 import Dashboard from "./pages/Dashboard";
+import JobDetail from "./pages/JobDetail";
 
 // FREELANCER PAGES
 import FreelancerDashboard from "./pages/freelancer/Dashboard";
@@ -77,8 +78,8 @@ function App() {
           element={
             <ProtectedRoute>
               {/* if you have a job detail page */}
-              {/* <JobDetail /> */}
-              <div className="p-8">Job detail coming soon…</div>
+              <JobDetail />
+              {/* <div className="p-8">Job detail coming soon…</div> */}
             </ProtectedRoute>
           }
         />
