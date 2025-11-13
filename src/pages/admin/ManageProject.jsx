@@ -1,12 +1,13 @@
 // src/pages/admin/ManageProject.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { listProjects, setProjectStatus } from "../../services/adminApi";
+import { listProjects, setProjectStatus, deleteProject } from "../../services/adminApi";
 
 const Icon = {
   Projects: () => <span>📁</span>,
   Refresh: () => <span>↻</span>,
   Back: () => <span>↩</span>,
+  Delete: () => <span>🗑️</span>,
 };
 
 export default function ManageProject() {
@@ -39,9 +40,8 @@ export default function ManageProject() {
   };
 
   useEffect(() => {
-    // page change should reload
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const update = async (id, s) => {
@@ -49,6 +49,20 @@ export default function ManageProject() {
     try {
       await setProjectStatus(id, s);
       await load();
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this project?")) return;
+
+    setBusy(id);
+    try {
+      await deleteProject(id);
+      await load();
+    } catch (err) {
+      alert(err.message || "Failed to delete project");
     } finally {
       setBusy("");
     }
@@ -152,6 +166,7 @@ export default function ManageProject() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {p.title || "Untitled Project"}
                 </h3>
+
                 <span className="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                   {p.status || "unknown"}
                 </span>
@@ -168,8 +183,7 @@ export default function ManageProject() {
                 p.freelancer?.name ||
                 p.freelancerId?.name ? (
                   <>
-                    {" "}
-                    • Dev:{" "}
+                    {" "}• Dev:{" "}
                     {p.assignee?.name ||
                       p.freelancer?.name ||
                       p.freelancerId?.name}
@@ -192,6 +206,15 @@ export default function ManageProject() {
                     {s}
                   </button>
                 ))}
+
+                {/* DELETE BUTTON */}
+                <button
+                  disabled={busy === p._id}
+                  onClick={() => remove(p._id)}
+                  className="px-3 py-1.5 text-xs rounded-md border border-red-400 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/30"
+                >
+                  <Icon.Delete /> Delete
+                </button>
               </div>
             </div>
           ))}

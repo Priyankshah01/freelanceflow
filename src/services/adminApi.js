@@ -77,6 +77,11 @@ export const updatePayoutStatus = (id, status) =>
     method: 'PATCH',
     body: { status },
   });
+  export const deleteProject = (id) =>
+  admin.req(`projects/${id}`, {
+    method: "DELETE",
+  });
+
 
 /* -------- Optional Ping -------- */
 export const pingAdmin = () => admin.req('__ping').catch(() => null);
