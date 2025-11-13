@@ -50,7 +50,13 @@ export default function Dashboard() {
         </div>
       </div>
     );
+    const navigate = useNavigate();
 
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    navigate("/admin/login");
+  };
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar for desktop */}
@@ -76,11 +82,10 @@ export default function Dashboard() {
                   <Link
                     key={item.name}
                     to={item.to}
-                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      active
-                        ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    }`}
+                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${active
+                      ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      }`}
                   >
                     {ItemIcon ? <ItemIcon /> : null}
                     <span className="ml-3">{item.name}</span>
@@ -116,9 +121,13 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <button className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
                 Sign Out
               </button>
+
               <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full grid place-items-center text-white font-semibold">
                 A
               </div>
@@ -303,11 +312,10 @@ export default function Dashboard() {
                       <Link
                         key={item.name}
                         to={item.to}
-                        className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                          active
-                            ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
-                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                        }`}
+                        className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${active
+                          ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                          }`}
                         onClick={() => setSidebarOpen(false)}
                       >
                         {ItemIcon ? <ItemIcon /> : null}
@@ -388,11 +396,10 @@ function StatCard({
         </div>
         {change && (
           <span
-            className={`text-sm font-medium ${
-              trend === "up"
-                ? "text-green-600 dark:text-green-400"
-                : "text-red-600 dark:text-red-400"
-            }`}
+            className={`text-sm font-medium ${trend === "up"
+              ? "text-green-600 dark:text-green-400"
+              : "text-red-600 dark:text-red-400"
+              }`}
           >
             {change}
           </span>
