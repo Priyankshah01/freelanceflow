@@ -44,6 +44,7 @@ import AdminReports from "./pages/admin/Reports";
 import AdminManageProject from "./pages/admin/ManageProject";
 import AdminSettings from "./pages/admin/Settings";
 import AdminRevenue from "./pages/admin/Revenue";
+import ViewUser from "./pages/admin/ViewUser";
 
 import "./styles/index.css";
 

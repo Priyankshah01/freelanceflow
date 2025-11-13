@@ -95,6 +95,7 @@ export const getUserById = async (id) => {
   return res.data;
 };
 
+export const getUser = (id) => admin.req(`users/${id}`);
 
 
 /* -------- Optional Ping -------- */
