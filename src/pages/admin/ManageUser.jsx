@@ -8,11 +8,11 @@ import {
   deleteUser,
 } from "../../services/adminApi";
 
-// Minimal emoji icons
 const Icon = {
   Users: () => <span>👥</span>,
   Search: () => <span>🔎</span>,
   Back: () => <span>↩</span>,
+  Delete: () => <span>🗑️</span>,
 };
 
 export default function ManageUser() {
@@ -40,7 +40,6 @@ export default function ManageUser() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     load();
   }, [page]);
 
@@ -65,6 +64,20 @@ export default function ManageUser() {
     try {
       await updateUserStatus(id, s);
       await load();
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const removeUser = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
+
+    setBusyId(id);
+    try {
+      await deleteUser(id);
+      await load();
+    } catch (err) {
+      alert(err.message || "Failed to delete user");
     } finally {
       setBusyId("");
     }
@@ -180,31 +193,6 @@ export default function ManageUser() {
             </thead>
 
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {/* Skeleton rows */}
-              {loading &&
-                Array.from({ length: 6 }).map((_, i) => (
-                  <tr key={`sk-${i}`} className="animate-pulse">
-                    <Td>
-                      <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
-                    </Td>
-                    <Td>
-                      <div className="h-4 w-48 rounded bg-gray-200 dark:bg-gray-700" />
-                    </Td>
-                    <Td>
-                      <div className="h-8 w-28 rounded bg-gray-200 dark:bg-gray-700" />
-                    </Td>
-                    <Td>
-                      <div className="h-6 w-20 rounded bg-gray-200 dark:bg-gray-700" />
-                    </Td>
-                    <Td>
-                      <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
-                    </Td>
-                    <Td>
-                      <div className="h-8 w-32 rounded bg-gray-200 dark:bg-gray-700" />
-                    </Td>
-                  </tr>
-                ))}
-
               {!loading &&
                 res?.items?.map((u) => (
                   <tr key={u._id} className="text-gray-800 dark:text-gray-100">
@@ -226,10 +214,11 @@ export default function ManageUser() {
 
                     <Td>
                       <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${u.status === "active"
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                          u.status === "active"
                             ? statusChip.active
                             : statusChip.suspended
-                          }`}
+                        }`}
                       >
                         {u.status}
                       </span>
@@ -241,29 +230,11 @@ export default function ManageUser() {
                         : "—"}
                     </Td>
 
-                    <Td className="space-x-2">
-                      {u.status === "active" ? (
-                        <button
-                          className="px-3 py-1.5 text-xs rounded-md bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
-                          disabled={busyId === u._id}
-                          onClick={() => changeStatus(u._id, "suspended")}
-                        >
-                          Suspend
-                        </button>
-                      ) : (
-                        <button
-                          className="px-3 py-1.5 text-xs rounded-md bg-green-500/10 text-green-700 hover:bg-green-500/20 dark:text-green-300"
-                          disabled={busyId === u._id}
-                          onClick={() => changeStatus(u._id, "active")}
-                        >
-                          Activate
-                        </button>
-                      )}
-                    </Td>
+                    {/* ACTIONS COLUMN */}
                     <Td className="space-x-2">
                       {/* VIEW BUTTON */}
                       <button
-                        className="px-3 py-1.5 text-xs rounded-md bg-blue-500/10 text-blue-700 hover:bg-blue-500/20 dark:text-blue-300"
+                        className="px-3 py-1.5 text-xs rounded-md bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-300"
                         onClick={() => navigate(`/admin/users/${u._id}`)}
                       >
                         View
@@ -288,36 +259,17 @@ export default function ManageUser() {
                         </button>
                       )}
 
-                      {/* DELETE USER */}
+                      {/* DELETE BUTTON */}
                       <button
-                        className="px-3 py-1.5 text-xs rounded-md bg-red-500/10 text-red-700 hover:bg-red-500/20 dark:text-red-300"
+                        className="px-3 py-1.5 text-xs rounded-md border border-red-400 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/30"
                         disabled={busyId === u._id}
-                        onClick={() => {
-                          if (window.confirm("Are you sure you want to delete this user?")) {
-                            setBusyId(u._id);
-                            deleteUser(u._id)
-                              .then(() => load())
-                              .finally(() => setBusyId(""));
-                          }
-                        }}
+                        onClick={() => removeUser(u._id)}
                       >
-                        Delete
+                        <Icon.Delete /> Delete
                       </button>
                     </Td>
-
                   </tr>
                 ))}
-
-              {!loading && (res?.items?.length ?? 0) === 0 && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-10 text-center text-gray-500 dark:text-gray-400"
-                  >
-                    No users found.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -354,7 +306,6 @@ export default function ManageUser() {
   );
 }
 
-/* ---------- Tiny table cell components ---------- */
 function Th({ children }) {
   return (
     <th className="px-4 py-3 text-left font-semibold sticky top-0 backdrop-blur-md z-10">
@@ -362,6 +313,7 @@ function Th({ children }) {
     </th>
   );
 }
+
 function Td({ children, className = "" }) {
   return <td className={`px-4 py-3 align-middle ${className}`}>{children}</td>;
 }

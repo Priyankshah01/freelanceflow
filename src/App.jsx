@@ -350,6 +350,9 @@ function App() {
           }
         />
 
+        <Route path="/admin/users/:id" element={<ViewUser />} />
+
+
         {/* FALLBACK */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
