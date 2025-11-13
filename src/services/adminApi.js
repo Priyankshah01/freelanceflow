@@ -82,6 +82,15 @@ export const updatePayoutStatus = (id, status) =>
     method: "DELETE",
   });
 
+  export const deleteUser = (id) =>
+  admin.req(`users/${id}`, {
+    method: "DELETE",
+  });
+
+export const getUserDetails = (id) =>
+  admin.req(`users/${id}`);
+
+
 
 /* -------- Optional Ping -------- */
 export const pingAdmin = () => admin.req('__ping').catch(() => null);

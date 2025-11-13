@@ -5,6 +5,7 @@ import {
   listUsers,
   updateUserRole,
   updateUserStatus,
+  deleteUser,
 } from "../../services/adminApi";
 
 // Minimal emoji icons
@@ -225,11 +226,10 @@ export default function ManageUser() {
 
                     <Td>
                       <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                          u.status === "active"
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${u.status === "active"
                             ? statusChip.active
                             : statusChip.suspended
-                        }`}
+                          }`}
                       >
                         {u.status}
                       </span>
@@ -260,6 +260,51 @@ export default function ManageUser() {
                         </button>
                       )}
                     </Td>
+                    <Td className="space-x-2">
+                      {/* VIEW BUTTON */}
+                      <button
+                        className="px-3 py-1.5 text-xs rounded-md bg-blue-500/10 text-blue-700 hover:bg-blue-500/20 dark:text-blue-300"
+                        onClick={() => navigate(`/admin/users/${u._id}`)}
+                      >
+                        View
+                      </button>
+
+                      {/* ACTIVATE / SUSPEND */}
+                      {u.status === "active" ? (
+                        <button
+                          className="px-3 py-1.5 text-xs rounded-md bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+                          disabled={busyId === u._id}
+                          onClick={() => changeStatus(u._id, "suspended")}
+                        >
+                          Suspend
+                        </button>
+                      ) : (
+                        <button
+                          className="px-3 py-1.5 text-xs rounded-md bg-green-500/10 text-green-700 hover:bg-green-500/20 dark:text-green-300"
+                          disabled={busyId === u._id}
+                          onClick={() => changeStatus(u._id, "active")}
+                        >
+                          Activate
+                        </button>
+                      )}
+
+                      {/* DELETE USER */}
+                      <button
+                        className="px-3 py-1.5 text-xs rounded-md bg-red-500/10 text-red-700 hover:bg-red-500/20 dark:text-red-300"
+                        disabled={busyId === u._id}
+                        onClick={() => {
+                          if (window.confirm("Are you sure you want to delete this user?")) {
+                            setBusyId(u._id);
+                            deleteUser(u._id)
+                              .then(() => load())
+                              .finally(() => setBusyId(""));
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </Td>
+
                   </tr>
                 ))}
 
