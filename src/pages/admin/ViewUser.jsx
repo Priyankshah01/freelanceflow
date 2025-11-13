@@ -53,7 +53,7 @@ export default function ViewUser() {
     );
 
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white dark:bg-gray-900 min-h-screen">
+    <div className="max-w-full mx-auto p-6 bg-white dark:bg-gray-900 min-h-screen">
       <Link
         to="/admin/users"
         className="text-sm text-indigo-600 dark:text-indigo-400"

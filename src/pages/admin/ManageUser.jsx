@@ -213,16 +213,22 @@ export default function ManageUser() {
                     </Td>
 
                     <Td>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                          u.status === "active"
-                            ? statusChip.active
-                            : statusChip.suspended
-                        }`}
-                      >
-                        {u.status}
-                      </span>
+                      {(() => {
+                        const userStatus = (u.status || "").toLowerCase();
+
+                        return (
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${userStatus === "active"
+                                ? statusChip.active
+                                : statusChip.suspended
+                              }`}
+                          >
+                            {userStatus || "unknown"}
+                          </span>
+                        );
+                      })()}
                     </Td>
+
 
                     <Td>
                       {u.createdAt
