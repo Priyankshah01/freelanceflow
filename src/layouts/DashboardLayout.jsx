@@ -42,7 +42,7 @@ const DashboardLayout = ({ children }) => {
         { name: 'My Proposals', href: '/freelancer/proposals', icon: FileText },
         { name: 'Active Projects', href: '/freelancer/projects', icon: Briefcase },
         { name: 'Profile', href: '/freelancer/profile', icon: User },
-        { name: 'Earnings', href: '/freelancer/earnings', icon: DollarSign }
+        // { name: 'Earnings', href: '/freelancer/earnings', icon: DollarSign }
       ];
     }
 

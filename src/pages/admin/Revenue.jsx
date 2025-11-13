@@ -13,6 +13,7 @@ const Icon = {
   Back: () => <span>↩</span>,
   Refresh: () => <span>↻</span>,
   Download: () => <span>⬇️</span>,
+  Close: () => <span>✕</span>,
 };
 
 /* ---------------- CSV helper ---------------- */
@@ -37,6 +38,42 @@ function downloadCSV(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
+/* ---------------- Status helpers ---------------- */
+const INVOICE_STATUSES = ["paid", "pending", "failed", "refunded"];
+const PAYOUT_STATUSES = ["requested", "processing", "sent", "failed"];
+
+const invoiceStatusClass = (status) => {
+  switch (status) {
+    case "paid":
+      return "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300";
+    case "pending":
+      return "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+    case "failed":
+      return "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300";
+    case "refunded":
+      return "bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300";
+    default:
+      return "bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300";
+  }
+};
+
+const payoutStatusClass = (status) => {
+  switch (status) {
+    case "sent":
+      return "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300";
+    case "processing":
+      return "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+    case "failed":
+      return "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300";
+    case "requested":
+      return "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
+    default:
+      return "bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300";
+  }
+};
+
+/* ============================ Page Wrapper ============================ */
+
 export default function Revenue() {
   const [tab, setTab] = useState("invoices");
   const navigate = useNavigate();
@@ -51,10 +88,13 @@ export default function Revenue() {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 dark:text-white">
-              Revenue & Payouts
+              Revenue &amp; Payouts
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              <Link to="/admin" className="text-indigo-600 dark:text-indigo-400">
+              <Link
+                to="/admin"
+                className="text-indigo-600 dark:text-indigo-400"
+              >
                 Admin
               </Link>{" "}
               / Revenue
@@ -96,20 +136,21 @@ export default function Revenue() {
 }
 
 /* ============================ Invoices ============================ */
+
 function InvoicesPane() {
-  const [status, setStatus] = useState(""); // e.g., paid/pending/failed/refunded
+  const [status, setStatus] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [res, setRes] = useState(null);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState("");
+  const [busyBulk, setBusyBulk] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [detail, setDetail] = useState(null); // invoice for modal
 
-  const statuses = useMemo(
-    () => ["paid", "pending", "failed", "refunded"],
-    []
-  );
+  const statuses = useMemo(() => INVOICE_STATUSES, []);
 
   const load = async (overridePage) => {
     try {
@@ -127,6 +168,8 @@ function InvoicesPane() {
           pages: 1,
         }
       );
+      // reset selection when page/filter changes
+      setSelectedIds([]);
     } catch (e) {
       setErr(e.message || "Failed to load invoices");
     } finally {
@@ -149,6 +192,43 @@ function InvoicesPane() {
     }
   };
 
+  const handleSelectOne = (id, checked) => {
+    setSelectedIds((prev) =>
+      checked ? [...prev, id] : prev.filter((x) => x !== id)
+    );
+  };
+
+  const handleSelectAll = (checked) => {
+    if (!res?.items) return;
+    setSelectedIds(checked ? res.items.map((i) => i._id).filter(Boolean) : []);
+  };
+
+  const bulkUpdate = async (targetStatus) => {
+    if (!selectedIds.length) return;
+    if (
+      !window.confirm(
+        `Set status to "${targetStatus}" for ${selectedIds.length} invoice(s)?`
+      )
+    )
+      return;
+
+    setBusyBulk(true);
+    try {
+      for (const id of selectedIds) {
+        if (!id) continue;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await updateInvoiceStatus(id, targetStatus);
+        } catch (e) {
+          console.error("bulk update invoice error:", e);
+        }
+      }
+      await load();
+    } finally {
+      setBusyBulk(false);
+    }
+  };
+
   const exportCSV = () => {
     const rows = (res?.items || []).map((i) => ({
       id: i._id,
@@ -164,15 +244,123 @@ function InvoicesPane() {
     downloadCSV("invoices.csv", rows);
   };
 
+  // summary by status (current page only)
+  const summary = useMemo(() => {
+    const items = res?.items || [];
+    const out = {
+      totalAmount: 0,
+      byStatus: {},
+    };
+    for (const inv of items) {
+      const s = (inv.status || "unknown").toLowerCase();
+      const amt = Number(inv.amount || 0);
+      out.totalAmount += amt;
+      if (!out.byStatus[s]) out.byStatus[s] = { amount: 0, count: 0 };
+      out.byStatus[s].amount += amt;
+      out.byStatus[s].count += 1;
+    }
+    return out;
+  }, [res]);
+
+  const maxBarAmount = useMemo(() => {
+    const vals = Object.values(summary.byStatus).map((v) => v.amount || 0);
+    return Math.max(1, ...vals);
+  }, [summary]);
+
   return (
     <>
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm backdrop-blur">
+          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+            Total (this page)
+          </p>
+          <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+            ${summary.totalAmount.toFixed(2)}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Across {res?.items?.length || 0} invoice(s)
+          </p>
+        </div>
+
+        <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm backdrop-blur">
+          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+            Breakdown by status
+          </p>
+          <div className="space-y-1.5">
+            {INVOICE_STATUSES.map((s) => {
+              const data = summary.byStatus[s] || { amount: 0, count: 0 };
+              const ratio = Math.max(
+                0.06,
+                Math.min(1, data.amount / maxBarAmount)
+              );
+              return (
+                <div key={s}>
+                  <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300 mb-0.5">
+                    <span>{s}</span>
+                    <span>
+                      ${data.amount.toFixed(2)}{" "}
+                      <span className="text-gray-400">
+                        ({data.count || 0})
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                    <div
+                      className="h-1.5 rounded bg-indigo-500"
+                      style={{ width: `${ratio * 100}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            {!res?.items?.length && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                No invoices on this page.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm backdrop-blur">
+          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+            Bulk actions
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Selected:{" "}
+            <span className="font-semibold text-gray-800 dark:text-gray-100">
+              {selectedIds.length}
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {INVOICE_STATUSES.map((s) => (
+              <button
+                key={s}
+                disabled={!selectedIds.length || busyBulk}
+                onClick={() => bulkUpdate(s)}
+                className={`px-3 py-1.5 text-xs rounded-md border transition ${
+                  selectedIds.length && !busyBulk
+                    ? "border-indigo-500 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                    : "border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-70"
+                }`}
+              >
+                Set {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Toolbar */}
       <div className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm backdrop-blur-md mb-6">
         <div className="flex flex-wrap items-center gap-3">
           <select
             className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="">Any status</option>
             {statuses.map((s) => (
@@ -184,13 +372,19 @@ function InvoicesPane() {
           <input
             type="date"
             value={from}
-            onChange={(e) => setFrom(e.target.value)}
+            onChange={(e) => {
+              setFrom(e.target.value);
+              setPage(1);
+            }}
             className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
           />
           <input
             type="date"
             value={to}
-            onChange={(e) => setTo(e.target.value)}
+            onChange={(e) => {
+              setTo(e.target.value);
+              setPage(1);
+            }}
             className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
           />
 
@@ -236,46 +430,64 @@ function InvoicesPane() {
         {!loading &&
           res?.items?.map((inv) => {
             const shortId = inv?._id ? inv._id.slice(-6) : "—";
+            const checked = selectedIds.includes(inv._id);
             return (
               <div
                 key={inv._id || Math.random().toString(36).slice(2)}
                 className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Invoice • {shortId}
-                  </h3>
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+                      checked={checked}
+                      onChange={(e) =>
+                        handleSelectOne(inv._id, e.target.checked)
+                      }
+                    />
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Invoice • {shortId}
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {inv.createdAt
+                          ? new Date(inv.createdAt).toLocaleString()
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+
                   <span
-                    className={`px-2 py-1 text-xs rounded-full ${
-                      inv.status === "paid"
-                        ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                        : inv.status === "pending"
-                        ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                        : inv.status === "failed"
-                        ? "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
-                        : "bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"
-                    }`}
+                    className={`px-2 py-1 text-xs rounded-full ${invoiceStatusClass(
+                      inv.status || "unknown"
+                    )}`}
                   >
                     {inv.status || "unknown"}
                   </span>
                 </div>
 
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Amount: <strong>${Number(inv.amount || 0).toFixed(2)}</strong>{" "}
-                  {inv.currency || "USD"}
+                  Amount:{" "}
+                  <strong>
+                    ${Number(inv.amount || 0).toFixed(2)}{" "}
+                    {inv.currency || "USD"}
+                  </strong>
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   User: {inv.user?.email || inv.userEmail || "—"} • Project:{" "}
                   {inv.project?.title || inv.projectTitle || "—"}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {inv.createdAt
-                    ? new Date(inv.createdAt).toLocaleString()
-                    : ""}
-                </p>
 
                 <div className="flex flex-wrap gap-2 mt-4">
-                  {["paid", "pending", "failed", "refunded"].map((s) => (
+                  <button
+                    onClick={() => setDetail(inv)}
+                    className="px-3 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                  >
+                    View details
+                  </button>
+
+                  {INVOICE_STATUSES.map((s) => (
                     <button
                       key={s}
                       disabled={busyId === inv._id}
@@ -336,25 +548,64 @@ function InvoicesPane() {
           </button>
         </div>
       )}
+
+      {/* Detail Modal */}
+      {detail && (
+        <Modal onClose={() => setDetail(null)} title="Invoice details">
+          <DetailRow label="ID" value={detail._id} />
+          <DetailRow label="Status" value={detail.status || "unknown"} />
+          <DetailRow
+            label="Amount"
+            value={`${Number(detail.amount || 0).toFixed(2)} ${
+              detail.currency || "USD"
+            }`}
+          />
+          <DetailRow
+            label="User"
+            value={detail.user?.email || detail.userEmail || "—"}
+          />
+          <DetailRow
+            label="Project"
+            value={detail.project?.title || detail.projectTitle || "—"}
+          />
+          <DetailRow
+            label="Created at"
+            value={
+              detail.createdAt
+                ? new Date(detail.createdAt).toLocaleString()
+                : "—"
+            }
+          />
+          <DetailRow
+            label="Updated at"
+            value={
+              detail.updatedAt
+                ? new Date(detail.updatedAt).toLocaleString()
+                : "—"
+            }
+          />
+        </Modal>
+      )}
     </>
   );
 }
 
 /* ============================ Payouts ============================ */
+
 function PayoutsPane() {
-  const [status, setStatus] = useState(""); // e.g., requested/processing/sent/failed
+  const [status, setStatus] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [res, setRes] = useState(null);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState("");
+  const [busyBulk, setBusyBulk] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [detail, setDetail] = useState(null);
 
-  const statuses = useMemo(
-    () => ["requested", "processing", "sent", "failed"],
-    []
-  );
+  const statuses = useMemo(() => PAYOUT_STATUSES, []);
 
   const load = async (overridePage) => {
     try {
@@ -372,6 +623,7 @@ function PayoutsPane() {
           pages: 1,
         }
       );
+      setSelectedIds([]);
     } catch (e) {
       setErr(e.message || "Failed to load payouts");
     } finally {
@@ -394,6 +646,43 @@ function PayoutsPane() {
     }
   };
 
+  const handleSelectOne = (id, checked) => {
+    setSelectedIds((prev) =>
+      checked ? [...prev, id] : prev.filter((x) => x !== id)
+    );
+  };
+
+  const handleSelectAll = (checked) => {
+    if (!res?.items) return;
+    setSelectedIds(checked ? res.items.map((p) => p._id).filter(Boolean) : []);
+  };
+
+  const bulkUpdate = async (targetStatus) => {
+    if (!selectedIds.length) return;
+    if (
+      !window.confirm(
+        `Set status to "${targetStatus}" for ${selectedIds.length} payout(s)?`
+      )
+    )
+      return;
+
+    setBusyBulk(true);
+    try {
+      for (const id of selectedIds) {
+        if (!id) continue;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await updatePayoutStatus(id, targetStatus);
+        } catch (e) {
+          console.error("bulk update payout error:", e);
+        }
+      }
+      await load();
+    } finally {
+      setBusyBulk(false);
+    }
+  };
+
   const exportCSV = () => {
     const rows = (res?.items || []).map((p) => ({
       id: p._id,
@@ -409,15 +698,123 @@ function PayoutsPane() {
     downloadCSV("payouts.csv", rows);
   };
 
+  // summary
+  const summary = useMemo(() => {
+    const items = res?.items || [];
+    const out = {
+      totalAmount: 0,
+      byStatus: {},
+    };
+    for (const po of items) {
+      const s = (po.status || "unknown").toLowerCase();
+      const amt = Number(po.amount || 0);
+      out.totalAmount += amt;
+      if (!out.byStatus[s]) out.byStatus[s] = { amount: 0, count: 0 };
+      out.byStatus[s].amount += amt;
+      out.byStatus[s].count += 1;
+    }
+    return out;
+  }, [res]);
+
+  const maxBarAmount = useMemo(() => {
+    const vals = Object.values(summary.byStatus).map((v) => v.amount || 0);
+    return Math.max(1, ...vals);
+  }, [summary]);
+
   return (
     <>
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm backdrop-blur">
+          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+            Total (this page)
+          </p>
+          <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+            ${summary.totalAmount.toFixed(2)}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Across {res?.items?.length || 0} payout(s)
+          </p>
+        </div>
+
+        <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm backdrop-blur">
+          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+            Breakdown by status
+          </p>
+          <div className="space-y-1.5">
+            {PAYOUT_STATUSES.map((s) => {
+              const data = summary.byStatus[s] || { amount: 0, count: 0 };
+              const ratio = Math.max(
+                0.06,
+                Math.min(1, data.amount / maxBarAmount)
+              );
+              return (
+                <div key={s}>
+                  <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300 mb-0.5">
+                    <span>{s}</span>
+                    <span>
+                      ${data.amount.toFixed(2)}{" "}
+                      <span className="text-gray-400">
+                        ({data.count || 0})
+                      </span>
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                    <div
+                      className="h-1.5 rounded bg-indigo-500"
+                      style={{ width: `${ratio * 100}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            {!res?.items?.length && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                No payouts on this page.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm backdrop-blur">
+          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+            Bulk actions
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Selected:{" "}
+            <span className="font-semibold text-gray-800 dark:text-gray-100">
+              {selectedIds.length}
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {PAYOUT_STATUSES.map((s) => (
+              <button
+                key={s}
+                disabled={!selectedIds.length || busyBulk}
+                onClick={() => bulkUpdate(s)}
+                className={`px-3 py-1.5 text-xs rounded-md border transition ${
+                  selectedIds.length && !busyBulk
+                    ? "border-indigo-500 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                    : "border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-70"
+                }`}
+              >
+                Set {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Toolbar */}
       <div className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm backdrop-blur-md mb-6">
         <div className="flex flex-wrap items-center gap-3">
           <select
             className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="">Any status</option>
             {statuses.map((s) => (
@@ -429,13 +826,19 @@ function PayoutsPane() {
           <input
             type="date"
             value={from}
-            onChange={(e) => setFrom(e.target.value)}
+            onChange={(e) => {
+              setFrom(e.target.value);
+              setPage(1);
+            }}
             className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
           />
           <input
             type="date"
             value={to}
-            onChange={(e) => setTo(e.target.value)}
+            onChange={(e) => {
+              setTo(e.target.value);
+              setPage(1);
+            }}
             className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
           />
 
@@ -481,44 +884,65 @@ function PayoutsPane() {
         {!loading &&
           res?.items?.map((po) => {
             const shortId = po?._id ? po._id.slice(-6) : "—";
+            const checked = selectedIds.includes(po._id);
             return (
               <div
                 key={po._id || Math.random().toString(36).slice(2)}
                 className="bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Payout • {shortId}
-                  </h3>
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+                      checked={checked}
+                      onChange={(e) =>
+                        handleSelectOne(po._id, e.target.checked)
+                      }
+                    />
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Payout • {shortId}
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {po.createdAt
+                          ? new Date(po.createdAt).toLocaleString()
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+
                   <span
-                    className={`px-2 py-1 text-xs rounded-full ${
-                      po.status === "sent"
-                        ? "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                        : po.status === "processing"
-                        ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                        : po.status === "failed"
-                        ? "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
-                        : "bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300"
-                    }`}
+                    className={`px-2 py-1 text-xs rounded-full ${payoutStatusClass(
+                      po.status || "unknown"
+                    )}`}
                   >
                     {po.status || "unknown"}
                   </span>
                 </div>
 
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Amount: <strong>${Number(po.amount || 0).toFixed(2)}</strong>{" "}
-                  {po.currency || "USD"}
+                  Amount:{" "}
+                  <strong>
+                    ${Number(po.amount || 0).toFixed(2)}{" "}
+                    {po.currency || "USD"}
+                  </strong>
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Freelancer: {po.freelancer?.email || po.freelancerEmail || "—"} •
+                  Freelancer: {po.freelancer?.email || po.freelancerEmail || "—"}
+                  {" • "}
                   Method: {po.method || po.provider || "—"}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {po.createdAt ? new Date(po.createdAt).toLocaleString() : ""}
                 </p>
 
                 <div className="flex flex-wrap gap-2 mt-4">
-                  {["requested", "processing", "sent", "failed"].map((s) => (
+                  <button
+                    onClick={() => setDetail(po)}
+                    className="px-3 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                  >
+                    View details
+                  </button>
+
+                  {PAYOUT_STATUSES.map((s) => (
                     <button
                       key={s}
                       disabled={busyId === po._id}
@@ -579,6 +1003,80 @@ function PayoutsPane() {
           </button>
         </div>
       )}
+
+      {/* Detail Modal */}
+      {detail && (
+        <Modal onClose={() => setDetail(null)} title="Payout details">
+          <DetailRow label="ID" value={detail._id} />
+          <DetailRow label="Status" value={detail.status || "unknown"} />
+          <DetailRow
+            label="Amount"
+            value={`${Number(detail.amount || 0).toFixed(2)} ${
+              detail.currency || "USD"
+            }`}
+          />
+          <DetailRow
+            label="Freelancer"
+            value={detail.freelancer?.email || detail.freelancerEmail || "—"}
+          />
+          <DetailRow
+            label="Method"
+            value={detail.method || detail.provider || "—"}
+          />
+          <DetailRow
+            label="Created at"
+            value={
+              detail.createdAt
+                ? new Date(detail.createdAt).toLocaleString()
+                : "—"
+            }
+          />
+          <DetailRow
+            label="Updated at"
+            value={
+              detail.updatedAt
+                ? new Date(detail.updatedAt).toLocaleString()
+                : "—"
+            }
+          />
+        </Modal>
+      )}
     </>
+  );
+}
+
+/* ============================ Shared UI ============================ */
+
+function Modal({ title, children, onClose }) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full mx-4">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            className="inline-flex items-center justify-center h-7 w-7 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
+          >
+            <Icon.Close />
+          </button>
+        </div>
+        <div className="px-4 py-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div className="flex justify-between gap-4 py-1.5">
+      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+        {label}
+      </span>
+      <span className="text-xs text-gray-900 dark:text-gray-100 break-all text-right">
+        {value ?? "—"}
+      </span>
+    </div>
   );
 }
