@@ -1,5 +1,6 @@
 // src/pages/admin/Dashboard.jsx
 import React, { useEffect, useState, isValidElement } from "react";
+import { useNavigate } from "react-router-dom";
 import { Link, useLocation } from "react-router-dom";
 import { fetchOverview } from "../../services/adminApi";
 
