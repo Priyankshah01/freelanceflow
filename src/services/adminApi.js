@@ -90,6 +90,11 @@ export const updatePayoutStatus = (id, status) =>
 export const getUserDetails = (id) =>
   admin.req(`users/${id}`);
 
+export const getUserById = async (id) => {
+  const res = await API.get(`/admin/users/${id}`);
+  return res.data;
+};
+
 
 
 /* -------- Optional Ping -------- */
