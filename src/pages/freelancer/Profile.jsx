@@ -61,15 +61,7 @@ const FreelancerProfile = () => {
 
   // -------- API helper with better error data --------
   // (same shape as yours, but now uses apiService.request so it never hits localhost)
-  const apiRequest = async (endpoint, options = {}) => {
-    try {
-      const data = await apiService.request(endpoint, options);
-      return data;
-    } catch (error) {
-      // keep original behaviour
-      throw error;
-    }
-  };
+  const apiRequest = (endpoint, options = {}) => apiService.request(endpoint, options);
 
   // -------- utils: deep clean (remove "", null, undefined) --------
   const cleanObject = (obj) => {

@@ -1,7 +1,6 @@
 // src/pages/freelancer/Jobs.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import {
   Search,
@@ -21,8 +20,33 @@ import {
 import Button from '../../components/common/Button';
 import { get } from '../../services/api'; // 👈 use shared API
 
+const DEFAULT_FILTERS = {
+  category: '',
+  budget_type: '',
+  experience_level: '',
+  project_size: '',
+  timeline: '',
+  sort: 'newest',
+};
+
+const FilterSelect = ({ label, value, onChange, options }) => (
+  <label className="block">
+    <span className="block text-sm font-medium text-gray-700 mb-1">{label}</span>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  </label>
+);
+
 const Jobs = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,18 +60,7 @@ const Jobs = () => {
   const [totalJobs, setTotalJobs] = useState(0);
 
   // Filters
-  const [filters, setFilters] = useState({
-    category: '',
-    budget_type: '',
-    budget_min: '',
-    budget_max: '',
-    experience_level: '',
-    project_size: '',
-    timeline: '',
-    is_remote: '',
-    is_urgent: '',
-    sort: 'newest',
-  });
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
   const categories = [
     { value: '', label: 'All Categories' },
@@ -63,6 +76,12 @@ const Jobs = () => {
     { value: 'ai-ml', label: 'AI/Machine Learning' },
     { value: 'consulting', label: 'Consulting' },
     { value: 'other', label: 'Other' },
+  ];
+
+  const budgetTypes = [
+    { value: '', label: 'Any Budget' },
+    { value: 'fixed', label: 'Fixed Price' },
+    { value: 'hourly', label: 'Hourly' },
   ];
 
   const experienceLevels = [
@@ -92,7 +111,6 @@ const Jobs = () => {
     { value: 'oldest', label: 'Oldest First' },
     { value: 'budget_high', label: 'Highest Budget' },
     { value: 'budget_low', label: 'Lowest Budget' },
-    { value: 'most_proposals', label: 'Most Proposals' },
   ];
 
   useEffect(() => {
@@ -116,8 +134,10 @@ const Jobs = () => {
       const response = await get(`/projects?${params.toString()}`);
 
       setJobs(response?.data?.projects || []);
-      setTotalPages(response?.data?.pagination?.totalPages || 1);
-      setTotalJobs(response?.data?.pagination?.totalProjects || 0);
+      // the API returns pagination next to `data`, not inside it
+      const pagination = response?.pagination || response?.data?.pagination || {};
+      setTotalPages(pagination.totalPages || 1);
+      setTotalJobs(pagination.total ?? pagination.totalProjects ?? 0);
     } catch (err) {
       console.error('Error fetching jobs:', err);
       setJobs([]);
@@ -138,21 +158,14 @@ const Jobs = () => {
   };
 
   const clearFilters = () => {
-    setFilters({
-      category: '',
-      budget_type: '',
-      budget_min: '',
-      budget_max: '',
-      experience_level: '',
-      project_size: '',
-      timeline: '',
-      is_remote: '',
-      is_urgent: '',
-      sort: 'newest',
-    });
+    setFilters(DEFAULT_FILTERS);
     setSearchQuery('');
     setCurrentPage(1);
   };
+
+  const hasActiveFilters =
+    Boolean(searchQuery) ||
+    Object.entries(filters).some(([key, value]) => value && value !== DEFAULT_FILTERS[key]);
 
   const toggleSaveJob = (jobId) => {
     setSavedJobs((prev) => {
@@ -335,11 +348,63 @@ const Jobs = () => {
           </form>
 
           {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
-              {/* Filters JSX same as your current code */}
+            <div className="pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <FilterSelect
+                  label="Category"
+                  value={filters.category}
+                  onChange={(v) => handleFilterChange('category', v)}
+                  options={categories}
+                />
+                <FilterSelect
+                  label="Budget type"
+                  value={filters.budget_type}
+                  onChange={(v) => handleFilterChange('budget_type', v)}
+                  options={budgetTypes}
+                />
+                <FilterSelect
+                  label="Experience level"
+                  value={filters.experience_level}
+                  onChange={(v) => handleFilterChange('experience_level', v)}
+                  options={experienceLevels}
+                />
+                <FilterSelect
+                  label="Project size"
+                  value={filters.project_size}
+                  onChange={(v) => handleFilterChange('project_size', v)}
+                  options={projectSizes}
+                />
+                <FilterSelect
+                  label="Timeline"
+                  value={filters.timeline}
+                  onChange={(v) => handleFilterChange('timeline', v)}
+                  options={timelines}
+                />
+                <FilterSelect
+                  label="Sort by"
+                  value={filters.sort}
+                  onChange={(v) => handleFilterChange('sort', v)}
+                  options={sortOptions}
+                />
+              </div>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-4 text-sm text-indigo-600 hover:text-indigo-800"
+                >
+                  Clear all filters
+                </button>
+              )}
             </div>
           )}
         </div>
+
+        {!loading && (
+          <p className="text-sm text-gray-600 mb-4">
+            {totalJobs} job{totalJobs === 1 ? '' : 's'} found
+          </p>
+        )}
 
         {/* Jobs Listing */}
         {loading ? (
@@ -358,11 +423,11 @@ const Jobs = () => {
             <Briefcase className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs found</h3>
             <p className="text-gray-600 mb-4">
-              {searchQuery || Object.values(filters).some((f) => f)
+              {searchQuery || hasActiveFilters
                 ? 'Try adjusting your search criteria or filters'
                 : 'No jobs are currently available'}
             </p>
-            {(searchQuery || Object.values(filters).some((f) => f)) && (
+            {(searchQuery || hasActiveFilters) && (
               <Button onClick={clearFilters} variant="outline">
                 Clear all filters
               </Button>

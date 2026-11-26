@@ -15,9 +15,7 @@ import {
 } from 'lucide-react';
 
 // 🔗 shared API base (same as other client pages)
-const API_BASE =
-  import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
-  'https://freelanceflow-backend-01k4.onrender.com/api';
+import { API_BASE_URL as API_BASE } from '../../config/api';
 
 const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');

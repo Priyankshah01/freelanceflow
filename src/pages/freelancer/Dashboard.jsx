@@ -59,7 +59,7 @@ const FreelancerDashboard = () => {
   const [err, setErr] = useState('');
   const [pendingProposals, setPendingProposals] = useState([]);
   const [acceptedProposals, setAcceptedProposals] = useState([]);
-  const [rejectedProposals, setRejectedProposals] = useState([]);
+  const [, setRejectedProposals] = useState([]);
 
   // Sync context user
   useEffect(() => {

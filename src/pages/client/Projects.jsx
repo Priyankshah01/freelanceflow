@@ -2,7 +2,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { useAuth } from '../../context/AuthContext';
 import {
   Briefcase,
   Filter,
@@ -16,9 +15,7 @@ import {
 import Button from '../../components/common/Button';
 
 // 🔗 use the same API base everywhere
-const API_BASE =
-  import.meta?.env?.VITE_API_BASE_URL?.replace(/\/+$/, '') ||
-  'https://freelanceflow-backend-01k4.onrender.com/api';
+import { API_BASE_URL as API_BASE } from '../../config/api';
 
 const api = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
@@ -67,7 +64,6 @@ const StatusPill = ({ status }) => {
 };
 
 const Projects = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [loading, setLoading] = useState(true);

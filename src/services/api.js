@@ -1,24 +1,8 @@
 // src/services/api.js
 
-// 1) First priority: Vite envs (best for Vercel)
-const ENV_BASE =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) ||
-  '';
+import { API_BASE_URL } from '../config/api';
 
-// 2) Second priority: detect localhost from the browser
 const isBrowser = typeof window !== 'undefined';
-const isLocalhost =
-  isBrowser && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
-
-// 3) Final decision
-const API_BASE_URL = ENV_BASE
-  ? ENV_BASE.replace(/\/+$/, '')
-  : isLocalhost
-  ? 'http://localhost:5000/api'
-  : 'https://freelanceflow-backend-01k4.onrender.com/api';
-
-console.log('🌐 Using API base:', API_BASE_URL);
 
 class ApiService {
   constructor() {
