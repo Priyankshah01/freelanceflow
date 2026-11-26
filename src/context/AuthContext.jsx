@@ -3,8 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext({});
 
-// API Service (inline for now)
-const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL|| 'http://localhost:5000/api';
+import { API_BASE_URL } from '../config/api';
 
 class ApiService {
   constructor() {
@@ -34,7 +33,7 @@ class ApiService {
         try {
           const errorData = await response.json();
           errorMessage = errorData.message || `HTTP error! status: ${response.status}`;
-        } catch (e) {
+        } catch {
           errorMessage = `HTTP error! status: ${response.status}`;
         }
 
@@ -82,6 +81,7 @@ class ApiService {
 
 const apiService = new ApiService();
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

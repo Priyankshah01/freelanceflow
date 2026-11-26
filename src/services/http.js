@@ -1,18 +1,9 @@
 // src/services/http.js
 //
 // Single HTTP client for ALL roles (admin, client, freelancer).
-// In dev: http://localhost:5000/api
-// In prod: your Render backend (no vercel.json needed)
+// The backend address comes from src/config/api.js.
 
-const isLocalhost =
-  typeof window !== 'undefined' &&
-  /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
-
-const API_ROOT = isLocalhost
-  ? 'http://localhost:5000/api'
-  : 'https://freelanceflow-backend-01k4.onrender.com/api'; // <- your Render base
-
-console.log('🌐 HTTP using API root:', API_ROOT);
+import { API_BASE_URL as API_ROOT } from '../config/api';
 
 // Utility: safely join URL parts with single slashes
 function joinUrl(base, ...parts) {
@@ -57,13 +48,17 @@ export async function httpRequest(endpoint, options = {}) {
       try {
         const data = await res.json();
         msg = data?.message || msg;
-      } catch {}
+      } catch {
+        // response wasn't JSON; keep the status message
+      }
 
       if (res.status === 401) {
         try {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-        } catch {}
+        } catch {
+          // storage unavailable (private mode); nothing to clear
+        }
         if (typeof window !== 'undefined') window.location.href = '/login';
       }
 

@@ -351,8 +351,14 @@ function App() {
           }
         />
 
-        <Route path="/admin/users/:id" element={<ViewUser />} />
-
+        <Route
+          path="/admin/users/:id"
+          element={
+            <RequireAdmin>
+              <ViewUser />
+            </RequireAdmin>
+          }
+        />
 
         {/* FALLBACK */}
         <Route path="*" element={<Navigate to="/" replace />} />

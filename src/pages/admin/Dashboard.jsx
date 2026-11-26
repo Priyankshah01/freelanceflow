@@ -2,6 +2,7 @@
 import React, { useEffect, useState, isValidElement } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import { fetchOverview } from "../../services/adminApi";
 
 // Simple emoji icons (swap with your own if you like)
@@ -23,6 +24,8 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   useEffect(() => {
     fetchOverview()
@@ -51,12 +54,10 @@ export default function Dashboard() {
         </div>
       </div>
     );
-    const navigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    navigate("/admin/login");
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
   };
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">

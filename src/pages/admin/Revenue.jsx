@@ -331,6 +331,13 @@ function InvoicesPane() {
             <span className="font-semibold text-gray-800 dark:text-gray-100">
               {selectedIds.length}
             </span>
+            <button
+              type="button"
+              onClick={() => handleSelectAll(!(res?.items?.length && selectedIds.length === res.items.length))}
+              className="ml-2 text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              {res?.items?.length && selectedIds.length === res.items.length ? "Clear" : "Select all"}
+            </button>
           </p>
           <div className="flex flex-wrap gap-2">
             {INVOICE_STATUSES.map((s) => (
@@ -785,6 +792,13 @@ function PayoutsPane() {
             <span className="font-semibold text-gray-800 dark:text-gray-100">
               {selectedIds.length}
             </span>
+            <button
+              type="button"
+              onClick={() => handleSelectAll(!(res?.items?.length && selectedIds.length === res.items.length))}
+              className="ml-2 text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              {res?.items?.length && selectedIds.length === res.items.length ? "Clear" : "Select all"}
+            </button>
           </p>
           <div className="flex flex-wrap gap-2">
             {PAYOUT_STATUSES.map((s) => (

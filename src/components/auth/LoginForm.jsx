@@ -5,6 +5,14 @@ import FormField from '../common/FormField';
 import Button from '../common/Button';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
+// Public demo accounts from freelanceflow-backend/scripts/seedData.js
+const DEMO_PASSWORD = 'password123';
+const DEMO_ACCOUNTS = [
+  { role: 'Freelancer', email: 'freelancer@test.com' },
+  { role: 'Client', email: 'client@test.com' },
+  { role: 'Admin', email: 'admin@test.com' },
+];
+
 const LoginForm = ({ onToggleMode, onSuccess }) => {
   const { login, loading, error: authError } = useAuth();
   const [formData, setFormData] = useState({
@@ -43,18 +51,26 @@ const LoginForm = ({ onToggleMode, onSuccess }) => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
-
+  const signIn = async (email, password) => {
     try {
-      const user = await login(formData.email, formData.password);
+      const user = await login(email, password);
       onSuccess?.(user);
     } catch (err) {
       // Error is handled by AuthContext
       console.error('Login failed:', err);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    await signIn(formData.email, formData.password);
+  };
+
+  const handleDemoLogin = async (email) => {
+    setFormData({ email, password: DEMO_PASSWORD });
+    setErrors({});
+    await signIn(email, DEMO_PASSWORD);
   };
 
   return (
@@ -64,14 +80,25 @@ const LoginForm = ({ onToggleMode, onSuccess }) => {
         <p className="text-gray-600">Sign in to your FreelanceFlow account</p>
       </div>
 
-      {/* Demo credentials info */}
+      {/* One-click demo accounts (created by the backend's seed script) */}
       <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-        <h3 className="text-sm font-medium text-blue-800 mb-2">Demo Credentials:</h3>
-        <div className="text-xs text-blue-700 space-y-1">
-          <div><strong>Freelancer:</strong> freelancer@test.com / password123</div>
-          <div><strong>Client:</strong> client@test.com / password123</div>
-          <div><strong>Admin:</strong> admin@test.com / password123</div>
+        <h3 className="text-sm font-medium text-blue-800 mb-3">Try the demo as:</h3>
+        <div className="grid grid-cols-3 gap-2">
+          {DEMO_ACCOUNTS.map((acct) => (
+            <button
+              key={acct.role}
+              type="button"
+              onClick={() => handleDemoLogin(acct.email)}
+              disabled={loading}
+              className="px-3 py-2 text-sm font-medium rounded-md bg-white border border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            >
+              {acct.role}
+            </button>
+          ))}
         </div>
+        <p className="mt-3 text-xs text-blue-700">
+          The demo server sleeps when idle, so the first sign-in can take up to a minute.
+        </p>
       </div>
 
       {authError && (
